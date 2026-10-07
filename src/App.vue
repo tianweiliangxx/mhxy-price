@@ -74,7 +74,7 @@ function formatWan(price) {
         <input
           v-model="keyword"
           type="search"
-          placeholder="输入内丹名称，例如狂怒"
+          placeholder="输入物品名称，例如海马"
           :disabled="status !== 'ready'"
         />
       </label>
