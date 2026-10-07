@@ -137,7 +137,7 @@
     {
       "name": "储灵袋",
       "category": "材料",
-      "price": 25000,
+      "price": 33333,
       "updatedAt": "2026-10-07"
     },
     {
@@ -323,7 +323,25 @@
     {
       "name": "炼妖石·105",
       "category": "炼妖石",
-      "price": 45000,
+      "price": 13333,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "炼妖石·125",
+      "category": "炼妖石",
+      "price": 13333,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "顺逆神针",
+      "category": "制造",
+      "price": 13333,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "玉灵果",
+      "category": "制造",
+      "price": 39999,
       "updatedAt": "2026-10-07"
     },
     {
