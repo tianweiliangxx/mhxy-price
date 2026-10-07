@@ -1,0 +1,36 @@
+{
+  "updatedAt": "2026-10-07",
+  "currency": "金币",
+  "items": [
+    {
+      "name": "狂怒",
+      "category": "低级内丹",
+      "price": 233000,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "阴伤",
+      "category": "低级内丹",
+      "price": 233000,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "静岳",
+      "category": "低级内丹",
+      "price": 588000,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "矫健",
+      "category": "低级内丹",
+      "price": 798000,
+      "updatedAt": "2026-10-07"
+    },
+    {
+      "name": "撞击",
+      "category": "低级内丹",
+      "price": 233000,
+      "updatedAt": "2026-10-07"
+    }
+  ]
+}
