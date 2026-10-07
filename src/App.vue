@@ -10,7 +10,9 @@ const priceFormat = new Intl.NumberFormat('zh-CN')
 
 onMounted(async () => {
   try {
-    const data = (await import('../prices.json')).default
+    const response = await fetch('/prices.json')
+    if (!response.ok) throw new Error(String(response.status))
+    const data = await response.json()
     if (!data || !Array.isArray(data.items)) {
       throw new Error('invalid prices')
     }
