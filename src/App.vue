@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { pinyin } from 'pinyin-pro'
 
 const keyword = ref('')
 const category = ref('')
@@ -30,6 +31,14 @@ const categories = computed(() => {
   return [...new Set(names)]
 })
 
+const initialsByItem = computed(() => {
+  const map = new Map()
+  for (const item of catalog.value?.items ?? []) {
+    map.set(item, initialsOf(item.name ?? ''))
+  }
+  return map
+})
+
 const filtered = computed(() => {
   const items = catalog.value?.items ?? []
   const scoped = category.value
@@ -37,16 +46,29 @@ const filtered = computed(() => {
     : items.slice()
   const query = keyword.value.trim()
   if (!query) return scoped
+  const queryKey = query.toLowerCase()
 
-  const prefix = []
-  const includes = []
+  const ranked = [[], [], [], []]
   for (const item of scoped) {
     const name = item.name ?? ''
-    if (name.startsWith(query)) prefix.push(item)
-    else if (name.includes(query)) includes.push(item)
+    const initials = initialsByItem.value.get(item) ?? ''
+    if (name.startsWith(query)) ranked[0].push(item)
+    else if (initials.startsWith(queryKey)) ranked[1].push(item)
+    else if (name.includes(query)) ranked[2].push(item)
+    else if (initials.includes(queryKey)) ranked[3].push(item)
   }
-  return [...prefix, ...includes]
+  return ranked.flat()
 })
+
+function initialsOf(name) {
+  const letters = pinyin(name, {
+    pattern: 'first',
+    toneType: 'none',
+    type: 'array',
+    nonZh: 'consecutive',
+  })
+  return letters.join('').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
 
 function formatPrice(price) {
   return priceFormat.format(price)
@@ -74,7 +96,7 @@ function formatWan(price) {
         <input
           v-model="keyword"
           type="search"
-          placeholder="输入物品名称，例如海马"
+          placeholder="输入名称或首字母，例如 jll"
           :disabled="status !== 'ready'"
         />
       </label>
