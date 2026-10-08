@@ -4,6 +4,7 @@ import { pinyin } from 'pinyin-pro'
 
 const keyword = ref('')
 const category = ref('')
+const onlyChanges = ref(false)
 const status = ref('loading')
 const catalog = ref(null)
 
@@ -44,12 +45,13 @@ const filtered = computed(() => {
   const scoped = category.value
     ? items.filter((item) => item.category === category.value)
     : items.slice()
+  const pool = onlyChanges.value ? scoped.filter(hasHistory) : scoped
   const query = keyword.value.trim()
-  if (!query) return scoped
+  if (!query) return pool
   const queryKey = query.toLowerCase()
 
   const ranked = [[], [], [], []]
-  for (const item of scoped) {
+  for (const item of pool) {
     const name = item.name ?? ''
     const initials = initialsByItem.value.get(item) ?? ''
     if (name.startsWith(query)) ranked[0].push(item)
@@ -68,6 +70,17 @@ function initialsOf(name) {
     nonZh: 'consecutive',
   })
   return letters.join('').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function hasHistory(item) {
+  return Array.isArray(item.history) && item.history.length > 0
+}
+
+function priceRecords(item) {
+  return [
+    ...(item.history ?? []),
+    { price: item.price, updatedAt: item.updatedAt, source: item.source },
+  ]
 }
 
 function formatPrice(price) {
@@ -107,6 +120,10 @@ function formatWan(price) {
           <option v-for="name in categories" :key="name" :value="name">{{ name }}</option>
         </select>
       </label>
+      <label class="only-changes">
+        <input v-model="onlyChanges" type="checkbox" :disabled="status !== 'ready'" />
+        只看有更新记录
+      </label>
     </section>
 
     <p v-if="status === 'loading'" class="state">正在加载价格…</p>
@@ -123,6 +140,16 @@ function formatWan(price) {
           <span class="wan">约 {{ formatWan(item.price) }}</span>
         </div>
         <p class="updated">更新于 {{ item.updatedAt }}</p>
+        <div v-if="hasHistory(item)" class="history">
+          <p>更新记录</p>
+          <ol>
+            <li v-for="(record, index) in priceRecords(item)" :key="index">
+              <span>{{ record.updatedAt }}</span>
+              <span v-if="record.source">{{ record.source }}</span>
+              <span>{{ formatPrice(record.price) }}</span>
+            </li>
+          </ol>
+        </div>
       </li>
     </ul>
   </main>
@@ -151,6 +178,15 @@ function formatWan(price) {
   grid-template-columns: 1fr 180px;
   gap: 12px;
   margin: 24px 0;
+}
+
+.only-changes {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #44403c;
+  font-size: 14px;
 }
 
 .field {
@@ -239,6 +275,37 @@ function formatWan(price) {
 .updated {
   margin: 6px 0 0;
   font-size: 13px;
+}
+
+.history {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e7e5e4;
+}
+
+.history p {
+  margin: 0 0 6px;
+  color: #78716c;
+  font-size: 13px;
+}
+
+.history ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.history li {
+  display: flex;
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #44403c;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 640px) {

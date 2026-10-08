@@ -138,7 +138,15 @@
       "name": "储灵袋",
       "category": "材料",
       "price": 33333,
-      "updatedAt": "2026-10-07"
+      "updatedAt": "2026-10-07",
+      "source": "两元店摆摊",
+      "history": [
+        {
+          "price": 25000,
+          "updatedAt": "2026-10-07",
+          "source": "物价清单"
+        }
+      ]
     },
     {
       "name": "丹青·0",
@@ -324,7 +332,15 @@
       "name": "炼妖石·105",
       "category": "炼妖石",
       "price": 13333,
-      "updatedAt": "2026-10-07"
+      "updatedAt": "2026-10-07",
+      "source": "两元店摆摊",
+      "history": [
+        {
+          "price": 45000,
+          "updatedAt": "2026-10-07",
+          "source": "物价清单"
+        }
+      ]
     },
     {
       "name": "炼妖石·125",
@@ -540,7 +556,20 @@
       "name": "撞击",
       "category": "低级内丹",
       "price": 179000,
-      "updatedAt": "2026-10-07"
+      "updatedAt": "2026-10-07",
+      "source": "物价清单",
+      "history": [
+        {
+          "price": 233000,
+          "updatedAt": "2026-10-07",
+          "source": "首次记录"
+        },
+        {
+          "price": 488888,
+          "updatedAt": "2026-10-07",
+          "source": "摆摊截图"
+        }
+      ]
     },
     {
       "name": "迅敏",
@@ -570,13 +599,29 @@
       "name": "狂怒",
       "category": "低级内丹",
       "price": 488888,
-      "updatedAt": "2026-10-07"
+      "updatedAt": "2026-10-07",
+      "source": "摆摊截图",
+      "history": [
+        {
+          "price": 233000,
+          "updatedAt": "2026-10-07",
+          "source": "首次记录"
+        }
+      ]
     },
     {
       "name": "阴伤",
       "category": "低级内丹",
       "price": 488888,
-      "updatedAt": "2026-10-07"
+      "updatedAt": "2026-10-07",
+      "source": "摆摊截图",
+      "history": [
+        {
+          "price": 233000,
+          "updatedAt": "2026-10-07",
+          "source": "首次记录"
+        }
+      ]
     },
     {
       "name": "静岳",
