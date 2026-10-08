@@ -97,3 +97,36 @@ export function priceDrop(item) {
   const previous = item.history[item.history.length - 1].price
   return previous - item.price
 }
+
+export const GOLD_YUAN = 219
+export const GOLD_BASE = 30000000
+
+export function formatRmb(price) {
+  const yuan = (price * GOLD_YUAN) / GOLD_BASE
+  return `¥${yuan.toFixed(2)}`
+}
+
+export function specOf(name) {
+  const text = name || ''
+  const mark = text.lastIndexOf('·')
+  if (mark < 0) return { series: text, level: null, spec: text }
+  const series = text.slice(0, mark)
+  const tail = text.slice(mark + 1)
+  const matched = tail.match(/\d+/)
+  const level = matched ? Number(matched[0]) : null
+  return { series, level, spec: text }
+}
+
+export function quoteOf(item) {
+  const prices = priceRecords(item).map((record) => record.price)
+  const sum = prices.reduce((total, price) => total + price, 0)
+  const avg = Math.round(sum / prices.length)
+  return {
+    high: Math.max(...prices),
+    low: Math.min(...prices),
+    avg,
+    week: avg,
+    samples: prices.length,
+    stalls: 1,
+  }
+}

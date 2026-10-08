@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
+import { GOLD_YUAN } from './lib/prices.js'
 import { serverGroup, serverName, servers } from './lib/session.js'
 
 const route = useRoute()
@@ -53,20 +54,25 @@ function sendFeedback() {
         <el-menu-item index="/">首页</el-menu-item>
         <el-sub-menu index="buy">
           <template #title>收购高卖</template>
+          <el-menu-item index="/buy/capture">摊位识别</el-menu-item>
+          <el-menu-item index="/buy/sessions">收购记录</el-menu-item>
           <el-menu-item index="/buy/today">今日摊位物价</el-menu-item>
           <el-menu-item index="/buy/region">全区物价</el-menu-item>
           <el-menu-item index="/buy/market">行情列表</el-menu-item>
           <el-menu-item index="/buy/bargains">捡漏集合</el-menu-item>
           <el-menu-item index="/buy/trends">趋势报表</el-menu-item>
+          <el-menu-item index="/buy/alerts">收购提醒</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="stall">
           <template #title>摆摊</template>
+          <el-menu-item index="/stall/capture">摆摊识别</el-menu-item>
           <el-menu-item index="/stall/data">摊位数据</el-menu-item>
           <el-menu-item index="/stall/today">今天摊位物价</el-menu-item>
           <el-menu-item index="/stall/region">全区物价</el-menu-item>
         </el-sub-menu>
         <el-menu-item index="/screenshot">卖号截图助手</el-menu-item>
         <el-menu-item index="/warehouse">仓库管理</el-menu-item>
+        <el-menu-item index="/me">我的</el-menu-item>
       </el-menu>
       <div class="sider-foot">
         <el-text class="who">当前用户</el-text>
@@ -97,6 +103,7 @@ function sendFeedback() {
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <el-tag effect="plain">金价 {{ GOLD_YUAN }} 元/3000W</el-tag>
         </div>
       </el-header>
       <el-main class="main">

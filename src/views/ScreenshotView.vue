@@ -1,53 +1,98 @@
 <script setup>
 import { ref } from 'vue'
 
-const preview = ref('')
-const note = ref('')
-const saved = ref(false)
+const slots = ['戒指', '耳饰', '手镯', '佩饰', '头盔', '武器', '腰带', '项链', '衣服', '鞋子', '玉魄']
+const placed = ref({})
+const candidates = ref([])
+const selected = ref(null)
+const obs = ref({ host: '127.0.0.1', port: '4455', password: '' })
 
-function onFile(file) {
-  preview.value = URL.createObjectURL(file.raw)
-  saved.value = false
-  return false
+function addFiles(uploadFile) {
+  const file = uploadFile.raw
+  candidates.value.push({ id: `${Date.now()}-${file.name}`, name: file.name, url: URL.createObjectURL(file) })
 }
 
-function save() {
-  saved.value = true
+function onDrop(slot) {
+  if (selected.value == null) return
+  placed.value = { ...placed.value, [slot]: candidates.value[selected.value] }
+}
+
+function exportList() {
+  const manifest = {
+    session: `local-seller-${Date.now()}`,
+    slots: Object.fromEntries(slots.map((slot) => [slot, placed.value[slot]?.name || ''])),
+    candidates: candidates.value.map((item) => item.name),
+  }
+  const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = '清单.json'
+  link.click()
 }
 </script>
 
 <template>
   <section>
-    <h2>卖号截图助手</h2>
-    <el-text type="info">把截图放进来做对照，方便整理角色、装备和召唤兽。图片只留在这台浏览器里。</el-text>
-    <el-row :gutter="16" class="body">
-      <el-col :xs="24" :md="12">
-        <el-upload drag :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onFile">
-          <div class="drop">把截图拖到这里，或点击选择</div>
-        </el-upload>
-        <el-image v-if="preview" class="preview" :src="preview" fit="contain" />
-      </el-col>
-      <el-col :xs="24" :md="12">
-        <el-card shadow="never">
-          <template #header>核对清单</template>
-          <el-checkbox>角色面板</el-checkbox>
-          <el-checkbox>装备</el-checkbox>
-          <el-checkbox>召唤兽</el-checkbox>
-          <el-checkbox>道具栏</el-checkbox>
-          <el-input v-model="note" class="note" type="textarea" :rows="4" placeholder="补充说明" />
-          <el-button type="primary" @click="save">保存备注</el-button>
-          <el-text v-if="saved" type="success">备注已留在本页</el-text>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="head">
+      <div>
+        <h2>卖号截图助手</h2>
+        <el-text type="info">把详情图拖进槽位。打包先下载清单.json，图片仍留在本页。</el-text>
+      </div>
+      <el-space>
+        <el-button type="primary">录屏采集</el-button>
+        <el-button>OBS采集</el-button>
+        <el-button>停止</el-button>
+        <el-input v-model="obs.host" style="width: 110px" />
+        <el-input v-model="obs.port" style="width: 80px" />
+        <el-input v-model="obs.password" placeholder="OBS密码" style="width: 120px" />
+      </el-space>
+    </div>
+    <el-space class="tools">
+      <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="addFiles">
+        <el-button>上传图片</el-button>
+      </el-upload>
+      <el-button @click="exportList">打包导出</el-button>
+    </el-space>
+    <div class="board">
+      <div class="slots">
+        <div v-for="slot in slots" :key="slot" class="slot" @dragover.prevent @drop="onDrop(slot)" @click="onDrop(slot)">
+          <strong>{{ slot }}</strong>
+          <img v-if="placed[slot]" :src="placed[slot].url" :alt="slot" />
+          <span v-else>拖入详情图</span>
+        </div>
+      </div>
+      <aside>
+        <h3>候选详情</h3>
+        <p>拖到槽位，或选中后点击槽位。</p>
+        <div
+          v-for="(item, index) in candidates"
+          :key="item.id"
+          class="candidate"
+          draggable="true"
+          :class="{ on: selected === index }"
+          @dragstart="selected = index"
+          @click="selected = index"
+        >
+          <img :src="item.url" :alt="item.name" />
+          <span>{{ item.name }}</span>
+        </div>
+        <el-empty v-if="candidates.length === 0" description="开始上传装备详情图" :image-size="64" />
+      </aside>
+    </div>
   </section>
 </template>
 
 <style scoped>
-h2 { margin: 0 0 8px; }
-.body { margin-top: 16px; }
-.drop { padding: 28px 0; color: var(--el-text-color-secondary); }
-.preview { width: 100%; max-height: 360px; margin-top: 12px; }
-.note { margin: 12px 0; }
-.el-checkbox { display: flex; margin-bottom: 8px; }
+.head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h2 { margin: 0 0 4px; }
+.tools { margin: 12px 0; }
+.board { display: grid; grid-template-columns: 1fr 240px; gap: 12px; }
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.slot, .candidate { border: 1px dashed var(--el-border-color); border-radius: 8px; padding: 8px; background: #fff; }
+.slot { min-height: 92px; }
+.slot img, .candidate img { width: 100%; height: 64px; object-fit: contain; }
+.candidate { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; cursor: grab; }
+.candidate.on { border-color: var(--el-color-primary); }
+.candidate img { width: 48px; }
+@media (max-width: 800px) { .board { grid-template-columns: 1fr; } }
 </style>

@@ -1,7 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { catalog, formatPrice, loadPrices } from '../lib/prices.js'
+import { profile } from '../lib/session.js'
 
+const router = useRouter()
 const STORAGE = 'mhxy-warehouse'
 const picked = ref('')
 const quantity = ref(1)
@@ -49,7 +52,11 @@ function remove(index) {
 <template>
   <section>
     <h2>仓库管理</h2>
-    <el-text type="info">按当前物价估算库存，数据保存在这台浏览器。</el-text>
+    <el-empty v-if="profile.characters.length === 0" description="当前区服还没有角色">
+      <el-button type="primary" @click="router.push('/me')">前往我的页面创建角色</el-button>
+    </el-empty>
+    <template v-else>
+    <el-text type="info">按当前物价估算 {{ profile.characters[0].name }} 的库存，数据保存在这台浏览器。</el-text>
     <el-form :inline="true" class="add" @submit.prevent>
       <el-form-item label="物品">
         <el-select v-model="picked" filterable placeholder="选择已录入物品" style="width: 260px">
@@ -80,6 +87,7 @@ function remove(index) {
       </el-table-column>
     </el-table>
     <p class="total">合计 {{ formatPrice(total) }}</p>
+    </template>
   </section>
 </template>
 

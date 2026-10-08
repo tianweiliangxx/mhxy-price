@@ -1,55 +1,60 @@
 <script setup>
 import { computed, onMounted } from 'vue'
-import { catalog, formatPrice, formatWan, iconFor, loadPrices, priceDrop, status } from '../lib/prices.js'
+import { catalog, formatPrice, iconFor, loadPrices, priceDrop, quoteOf, status } from '../lib/prices.js'
 import { serverName } from '../lib/session.js'
 
-onMounted(() => {
-  loadPrices().catch(() => {})
-})
+onMounted(() => { loadPrices().catch(() => {}) })
 
 const rows = computed(() => (catalog.value?.items ?? [])
-  .map((item) => ({ item, drop: priceDrop(item) }))
-  .filter((row) => row.drop > 0)
-  .sort((a, b) => b.drop - a.drop))
+  .filter((item) => priceDrop(item) !== 0)
+  .map((item) => {
+    const previous = item.history.at(-1).price
+    const quote = quoteOf(item)
+    return { item, previous, quote, gap: item.price - previous }
+  }))
 </script>
 
 <template>
   <section>
-    <div class="page-head">
-      <el-text type="info">收购高卖 · {{ serverName }}</el-text>
-      <h2>捡漏集合</h2>
-      <el-text type="info">最新单价低于上一条记录的物品，按降价金额从高到低排列。</el-text>
-    </div>
-    <div v-loading="status === 'loading'">
-      <el-empty v-if="status === 'ready' && rows.length === 0" description="目前没有降价物品" />
-      <el-table v-else :data="rows">
-        <el-table-column label="物品" min-width="200">
-          <template #default="{ row }">
-            <div class="item">
-              <el-image v-if="iconFor(row.item)" class="icon" :src="iconFor(row.item)" fit="contain" />
-              <span>{{ row.item.name }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="上次" width="140">
-          <template #default="{ row }">{{ formatPrice(row.item.history.at(-1).price) }}</template>
-        </el-table-column>
-        <el-table-column label="现价" width="140">
-          <template #default="{ row }">{{ formatPrice(row.item.price) }}</template>
-        </el-table-column>
-        <el-table-column label="降了" width="160">
-          <template #default="{ row }">
-            <el-text type="success">{{ formatPrice(row.drop) }}（{{ formatWan(row.drop) }}）</el-text>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
+    <h2>捡漏集合</h2>
+    <el-alert type="info" show-icon :closable="false" title="本地没有采集基准，用上一条价格记录当作当天基准。摊主、坐标和证据要等画面采集之后才有。" />
+    <el-table v-loading="status === 'loading'" :data="rows" class="table">
+      <el-table-column label="物品" min-width="160">
+        <template #default="{ row }">
+          <div class="item">
+            <el-image v-if="iconFor(row.item)" class="icon" :src="iconFor(row.item)" fit="contain" />
+            {{ row.item.name }}
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="当前价" width="120">
+        <template #default="{ row }">{{ formatPrice(row.item.price) }}</template>
+      </el-table-column>
+      <el-table-column label="当天基准" width="120">
+        <template #default="{ row }">{{ formatPrice(row.previous) }}</template>
+      </el-table-column>
+      <el-table-column label="高出当天" width="120">
+        <template #default="{ row }">{{ formatPrice(row.gap) }}</template>
+      </el-table-column>
+      <el-table-column label="7天基准" width="120">
+        <template #default="{ row }">{{ formatPrice(row.quote.week) }}</template>
+      </el-table-column>
+      <el-table-column label="高出7天" width="120">
+        <template #default="{ row }">{{ formatPrice(row.item.price - row.quote.week) }}</template>
+      </el-table-column>
+      <el-table-column label="区服" width="150">
+        <template #default>{{ serverName }}</template>
+      </el-table-column>
+      <el-table-column label="状态" width="100">
+        <template #default>本地记录</template>
+      </el-table-column>
+    </el-table>
   </section>
 </template>
 
 <style scoped>
-.page-head h2 { margin: 4px 0; }
+h2 { margin: 0 0 12px; }
+.table { margin-top: 12px; }
 .item { display: flex; align-items: center; gap: 8px; }
-.icon { width: 32px; height: 32px; }
-.icon :deep(img) { image-rendering: pixelated; }
+.icon { width: 28px; height: 28px; }
 </style>
