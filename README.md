@@ -201,7 +201,7 @@
 
 ## 查询页面
 
-用 Vue 3 和 Vite 查询上面的单价，数据来自根目录的 `prices.json`。
+用 Vue 3、Vite 和 Element Plus 查询上面的单价，数据来自根目录的 `prices.json`。
 
 ```bash
 npm install

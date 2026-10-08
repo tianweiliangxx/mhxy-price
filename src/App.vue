@@ -110,74 +110,104 @@ function formatWan(price) {
 </script>
 
 <template>
-  <main class="page">
-    <header class="header">
+  <el-container class="page">
+    <el-header class="header" height="auto">
       <h1>梦幻西游道具价格</h1>
-      <p v-if="status === 'ready'" class="meta">
+      <el-text v-if="status === 'ready'" class="meta" type="info">
         更新日期 {{ catalog.updatedAt }} · {{ catalog.currency }} · {{ filtered.length }} 条
-      </p>
-    </header>
+      </el-text>
+    </el-header>
 
-    <section class="filters" aria-label="筛选">
-      <label class="field">
-        <span>名称</span>
-        <input
-          v-model="keyword"
-          type="search"
-          placeholder="输入名称或首字母，例如 jll"
-          :disabled="status !== 'ready'"
+    <el-main>
+      <el-form class="filters" :inline="true" @submit.prevent>
+        <el-form-item label="名称">
+          <el-input
+            v-model="keyword"
+            clearable
+            placeholder="输入名称或首字母，例如 jll"
+            :disabled="status !== 'ready'"
+          />
+        </el-form-item>
+        <el-form-item label="分类">
+          <el-select
+            v-model="category"
+            clearable
+            placeholder="全部"
+            :disabled="status !== 'ready'"
+          >
+            <el-option v-for="name in categories" :key="name" :label="name" :value="name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="onlyChanges" :disabled="status !== 'ready'">只看有更新记录</el-checkbox>
+        </el-form-item>
+      </el-form>
+
+      <div v-loading="status === 'loading'" class="result">
+        <el-alert
+          v-if="status === 'error'"
+          title="价格数据加载失败"
+          type="error"
+          show-icon
+          :closable="false"
         />
-      </label>
-      <label class="field">
-        <span>分类</span>
-        <select v-model="category" :disabled="status !== 'ready'">
-          <option value="">全部</option>
-          <option v-for="name in categories" :key="name" :value="name">{{ name }}</option>
-        </select>
-      </label>
-      <label class="only-changes">
-        <input v-model="onlyChanges" type="checkbox" :disabled="status !== 'ready'" />
-        只看有更新记录
-      </label>
-    </section>
-
-    <p v-if="status === 'loading'" class="state">正在加载价格…</p>
-    <p v-else-if="status === 'error'" class="state state-error" role="alert">价格数据加载失败</p>
-    <p v-else-if="filtered.length === 0" class="state">没有找到相关物品</p>
-    <ul v-else class="list">
-      <li v-for="item in filtered" :key="`${item.category}-${item.name}`" class="card">
-        <img v-if="iconFor(item)" class="icon" :src="iconFor(item)" :alt="item.name" />
-        <div class="card-body">
-        <div class="name-row">
-          <strong>{{ item.name }}</strong>
-          <span class="tag">{{ item.category }}</span>
+        <el-empty v-else-if="status === 'ready' && filtered.length === 0" description="没有找到相关物品" />
+        <div v-else class="list">
+          <el-card
+            v-for="item in filtered"
+            :key="`${item.category}-${item.name}`"
+            shadow="hover"
+          >
+            <div class="item">
+              <el-image
+                v-if="iconFor(item)"
+                class="icon"
+                :src="iconFor(item)"
+                :alt="item.name"
+                fit="contain"
+              />
+              <div class="item-body">
+                <div class="name-row">
+                  <span class="name">{{ item.name }}</span>
+                  <el-tag type="warning" effect="plain">{{ item.category }}</el-tag>
+                </div>
+                <div class="price-row">
+                  <span class="price">{{ formatPrice(item.price) }}</span>
+                  <el-text type="info">约 {{ formatWan(item.price) }}</el-text>
+                </div>
+                <el-text class="updated" type="info" size="small">更新于 {{ item.updatedAt }}</el-text>
+                <div v-if="hasHistory(item)" class="history">
+                  <el-text type="info" size="small">更新记录</el-text>
+                  <el-timeline>
+                    <el-timeline-item
+                      v-for="(record, index) in priceRecords(item)"
+                      :key="index"
+                      :timestamp="record.updatedAt"
+                      placement="top"
+                    >
+                      <el-text v-if="record.source">{{ record.source }}</el-text>
+                      {{ formatPrice(record.price) }}
+                    </el-timeline-item>
+                  </el-timeline>
+                </div>
+              </div>
+            </div>
+          </el-card>
         </div>
-        <div class="price-row">
-          <span class="price">{{ formatPrice(item.price) }}</span>
-          <span class="wan">约 {{ formatWan(item.price) }}</span>
-        </div>
-        <p class="updated">更新于 {{ item.updatedAt }}</p>
-        <div v-if="hasHistory(item)" class="history">
-          <p>更新记录</p>
-          <ol>
-            <li v-for="(record, index) in priceRecords(item)" :key="index">
-              <span>{{ record.updatedAt }}</span>
-              <span v-if="record.source">{{ record.source }}</span>
-              <span>{{ formatPrice(record.price) }}</span>
-            </li>
-          </ol>
-        </div>
-        </div>
-      </li>
-    </ul>
-  </main>
+      </div>
+    </el-main>
+  </el-container>
 </template>
 
 <style scoped>
 .page {
-  max-width: 720px;
+  max-width: 760px;
   margin: 0 auto;
-  padding: 32px 20px 48px;
+  min-height: 100vh;
+}
+
+.header {
+  padding: 28px 20px 0;
 }
 
 .header h1 {
@@ -187,82 +217,45 @@ function formatWan(price) {
 }
 
 .meta {
-  margin: 8px 0 0;
-  color: #57534e;
+  display: block;
+  margin-top: 8px;
 }
 
 .filters {
-  display: grid;
-  grid-template-columns: 1fr 180px;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.only-changes {
-  grid-column: 1 / -1;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #44403c;
-  font-size: 14px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: #44403c;
-  font-size: 14px;
+.filters :deep(.el-form-item) {
+  margin-right: 0;
+  margin-bottom: 8px;
 }
 
-.field input,
-.field select {
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid #d6d3d1;
-  border-radius: 8px;
-  background: #fff;
-  color: inherit;
+.filters :deep(.el-input) {
+  width: 280px;
 }
 
-.field input:focus,
-.field select:focus {
-  outline: 2px solid #b45309;
-  border-color: #b45309;
+.filters :deep(.el-select) {
+  width: 160px;
 }
 
-.state {
-  margin: 0;
-  padding: 28px 16px;
-  text-align: center;
-  color: #57534e;
-  background: #fff;
-  border-radius: 12px;
-}
-
-.state-error {
-  color: #9f1239;
+.result {
+  min-height: 120px;
 }
 
 .list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: grid;
   gap: 12px;
 }
 
-.card {
+.item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgb(28 25 23 / 6%);
 }
 
-.card-body {
+.item-body {
   flex: 1;
   min-width: 0;
 }
@@ -270,8 +263,10 @@ function formatWan(price) {
 .icon {
   width: 44px;
   height: 44px;
-  object-fit: contain;
   flex: none;
+}
+
+.icon :deep(img) {
   image-rendering: pixelated;
 }
 
@@ -283,16 +278,9 @@ function formatWan(price) {
   gap: 12px;
 }
 
-.name-row strong {
+.name {
   font-size: 18px;
-}
-
-.tag {
-  color: #9a3412;
-  background: #ffedd5;
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 12px;
+  font-weight: 700;
 }
 
 .price {
@@ -301,50 +289,26 @@ function formatWan(price) {
   font-variant-numeric: tabular-nums;
 }
 
-.wan,
 .updated {
-  color: #78716c;
-}
-
-.updated {
-  margin: 6px 0 0;
-  font-size: 13px;
+  display: block;
+  margin-top: 6px;
 }
 
 .history {
   margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid #e7e5e4;
+  padding-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
-.history p {
-  margin: 0 0 6px;
-  color: #78716c;
-  font-size: 13px;
-}
-
-.history ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 4px;
-}
-
-.history li {
-  display: flex;
-  gap: 10px;
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #44403c;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
+.history :deep(.el-timeline) {
+  margin-top: 12px;
+  padding-left: 2px;
 }
 
 @media (max-width: 640px) {
-  .filters {
-    grid-template-columns: 1fr;
+  .filters :deep(.el-input),
+  .filters :deep(.el-select) {
+    width: 100%;
   }
 }
 </style>
