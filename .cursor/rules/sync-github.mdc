@@ -1,0 +1,20 @@
+---
+description: 提交代码后通过 GitHub MCP 同步到 GitHub
+alwaysApply: true
+---
+
+# 提交后同步到 GitHub
+
+每次 `git commit` 成功后，立刻用项目里的 GitHub MCP（`.cursor/mcp.json` 的 `github`）把这次提交同步到：
+
+https://github.com/tianweiliangxx/mhxy-price
+
+## 怎么做
+
+1. 确认刚才的提交已经成功，并且只包含这次该提交的文件。
+2. 用 GitHub MCP 把当前分支的提交推到 `tianweiliangxx/mhxy-price` 的同名分支。仓库还不存在时，先在该账号下创建 `mhxy-price`，再推送。默认分支用 `main`。
+3. 同步完成后，在回复里给出 GitHub 仓库链接和这次同步的提交说明。
+
+## 做不到时
+
+MCP 未连接、未授权，或环境变量 `GITHUB_PAT` 没有设置时，停下来说明缺的是 GitHub 访问令牌。不要把 Cursor 账号密码或令牌写进仓库，也不要改用别的账号强行推送。
