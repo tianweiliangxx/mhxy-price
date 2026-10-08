@@ -64,11 +64,13 @@ async function recognizeSource(source) {
   liveText.value = '正在识别物品和价格'
   try {
     const found = await recognizeImage(source)
-    rows.value = found.map((item) => ({
+    rows.value = found.items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
     }))
-    liveText.value = rows.value.length ? `认出 ${rows.value.length} 条价格` : '这一帧没有认出价格'
+    liveText.value = rows.value.length
+      ? `认出 ${rows.value.length} 条`
+      : `这一帧没有认出物品。模型原文：${found.text.slice(0, 80) || '空'}`
   } catch {
     liveText.value = '识别失败'
   } finally {

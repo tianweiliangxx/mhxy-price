@@ -132,9 +132,12 @@ export async function recognizeImage(source, onProgress) {
       found.push(...readItemsFromOcr(result.data.lines || []))
     }
   }
-  if (found.length) return dedupe(found)
+  if (found.length) return { items: dedupe(found), text: '' }
   const result = await worker.recognize(frame)
-  return readItemsFromOcr(result.data.lines || [])
+  return {
+    items: readItemsFromOcr(result.data.lines || []),
+    text: (result.data.text || '').replace(/\s+/g, ' ').trim(),
+  }
 }
 
 function dedupe(items) {
