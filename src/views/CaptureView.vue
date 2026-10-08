@@ -15,7 +15,10 @@ const videoRef = ref(null)
 let stream = null
 
 const itemCount = computed(() => new Set(rows.value.map((row) => row.name)).size)
-const topPrice = computed(() => (rows.value.length ? Math.max(...rows.value.map((row) => row.price)) : null))
+const topPrice = computed(() => {
+  const prices = rows.value.map((row) => row.price).filter((price) => price)
+  return prices.length ? Math.max(...prices) : null
+})
 
 onMounted(() => {
   loadRecognizer((message) => {
