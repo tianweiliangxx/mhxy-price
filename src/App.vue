@@ -83,6 +83,21 @@ function priceRecords(item) {
   ]
 }
 
+const icons = {
+  '炼妖石·105': '/icons/lianyaoshi.png',
+  '炼妖石·115': '/icons/lianyaoshi.png',
+  '炼妖石·125': '/icons/lianyaoshi.png',
+  '顺逆神针': '/icons/shunnishenzhen.png',
+  '储灵袋': '/icons/chulingdai.png',
+  '玉灵果': '/icons/yulingguo.png',
+}
+
+function iconFor(item) {
+  if (icons[item.name]) return icons[item.name]
+  if (item.category === '低级内丹') return '/icons/neidan.png'
+  return ''
+}
+
 function formatPrice(price) {
   return priceFormat.format(price)
 }
@@ -130,7 +145,9 @@ function formatWan(price) {
     <p v-else-if="status === 'error'" class="state state-error" role="alert">价格数据加载失败</p>
     <p v-else-if="filtered.length === 0" class="state">没有找到相关物品</p>
     <ul v-else class="list">
-      <li v-for="item in filtered" :key="`${item.category}-${item.name}`">
+      <li v-for="item in filtered" :key="`${item.category}-${item.name}`" class="card">
+        <img v-if="iconFor(item)" class="icon" :src="iconFor(item)" :alt="item.name" />
+        <div class="card-body">
         <div class="name-row">
           <strong>{{ item.name }}</strong>
           <span class="tag">{{ item.category }}</span>
@@ -149,6 +166,7 @@ function formatWan(price) {
               <span>{{ formatPrice(record.price) }}</span>
             </li>
           </ol>
+        </div>
         </div>
       </li>
     </ul>
@@ -234,11 +252,27 @@ function formatWan(price) {
   gap: 12px;
 }
 
-.list li {
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   padding: 16px;
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 1px 2px rgb(28 25 23 / 6%);
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.icon {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex: none;
+  image-rendering: pixelated;
 }
 
 .name-row,
