@@ -306,6 +306,20 @@ function formatWan(price) {
 }
 
 @media (max-width: 640px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters :deep(.el-form-item) {
+    display: flex;
+    width: 100%;
+  }
+
+  .filters :deep(.el-form-item__content) {
+    flex: 1;
+  }
+
   .filters :deep(.el-input),
   .filters :deep(.el-select) {
     width: 100%;
