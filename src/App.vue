@@ -1,328 +1,239 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { pinyin } from 'pinyin-pro'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Search } from '@element-plus/icons-vue'
+import { serverGroup, serverName, servers } from './lib/session.js'
 
-const keyword = ref('')
-const category = ref('')
-const onlyChanges = ref(false)
-const status = ref('loading')
-const catalog = ref(null)
+const route = useRoute()
+const router = useRouter()
+const serverQuery = ref('')
+const noticeOpen = ref(false)
+const feedbackOpen = ref(false)
+const notifyOpen = ref(false)
+const loginOpen = ref(false)
+const feedback = ref('')
+const feedbackSent = ref(false)
 
-const priceFormat = new Intl.NumberFormat('zh-CN')
+const active = computed(() => route.path)
 
-onMounted(async () => {
-  try {
-    const response = await fetch('/prices.json')
-    if (!response.ok) throw new Error(String(response.status))
-    const data = await response.json()
-    if (!data || !Array.isArray(data.items)) {
-      throw new Error('invalid prices')
-    }
-    catalog.value = data
-    status.value = 'ready'
-  } catch {
-    status.value = 'error'
-  }
+const matchedServers = computed(() => {
+  const text = serverQuery.value.trim()
+  if (!text) return servers
+  return servers.filter((name) => name.includes(text))
 })
 
-const categories = computed(() => {
-  const names = (catalog.value?.items ?? [])
-    .map((item) => item.category)
-    .filter(Boolean)
-  return [...new Set(names)]
-})
-
-const initialsByItem = computed(() => {
-  const map = new Map()
-  for (const item of catalog.value?.items ?? []) {
-    map.set(item, initialsOf(item.name ?? ''))
-  }
-  return map
-})
-
-const filtered = computed(() => {
-  const items = catalog.value?.items ?? []
-  const scoped = category.value
-    ? items.filter((item) => item.category === category.value)
-    : items.slice()
-  const pool = onlyChanges.value ? scoped.filter(hasHistory) : scoped
-  const query = keyword.value.trim()
-  if (!query) return pool
-  const queryKey = query.toLowerCase()
-
-  const ranked = [[], [], [], []]
-  for (const item of pool) {
-    const name = item.name ?? ''
-    const initials = initialsByItem.value.get(item) ?? ''
-    if (name.startsWith(query)) ranked[0].push(item)
-    else if (initials.startsWith(queryKey)) ranked[1].push(item)
-    else if (name.includes(query)) ranked[2].push(item)
-    else if (initials.includes(queryKey)) ranked[3].push(item)
-  }
-  return ranked.flat()
-})
-
-function initialsOf(name) {
-  const letters = pinyin(name, {
-    pattern: 'first',
-    toneType: 'none',
-    type: 'array',
-    nonZh: 'consecutive',
-  })
-  return letters.join('').toLowerCase().replace(/[^a-z0-9]/g, '')
+function pickServer(name) {
+  serverName.value = name
+  serverQuery.value = ''
 }
 
-function hasHistory(item) {
-  return Array.isArray(item.history) && item.history.length > 0
-}
-
-function priceRecords(item) {
-  return [
-    ...(item.history ?? []),
-    { price: item.price, updatedAt: item.updatedAt, source: item.source },
-  ]
-}
-
-const icons = {
-  '炼妖石·105': '/icons/lianyaoshi.png',
-  '炼妖石·115': '/icons/lianyaoshi.png',
-  '炼妖石·125': '/icons/lianyaoshi.png',
-  '顺逆神针': '/icons/shunnishenzhen.png',
-  '储灵袋': '/icons/chulingdai.png',
-  '玉灵果': '/icons/yulingguo.png',
-}
-
-function iconFor(item) {
-  if (icons[item.name]) return icons[item.name]
-  if (item.category === '低级内丹') return '/icons/neidan.png'
-  return ''
-}
-
-function formatPrice(price) {
-  return priceFormat.format(price)
-}
-
-function formatWan(price) {
-  const wan = price / 10000
-  const text = Number.isInteger(wan) ? String(wan) : String(Number(wan.toFixed(4)))
-  return `${text}万`
+function sendFeedback() {
+  feedbackSent.value = true
 }
 </script>
 
 <template>
-  <el-container class="page">
-    <el-header class="header" height="auto">
-      <h1>梦幻西游道具价格</h1>
-      <el-text v-if="status === 'ready'" class="meta" type="info">
-        更新日期 {{ catalog.updatedAt }} · {{ catalog.currency }} · {{ filtered.length }} 条
-      </el-text>
-    </el-header>
-
-    <el-main>
-      <el-form class="filters" :inline="true" @submit.prevent>
-        <el-form-item label="名称">
-          <el-input
-            v-model="keyword"
-            clearable
-            placeholder="输入名称或首字母，例如 jll"
-            :disabled="status !== 'ready'"
-          />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select
-            v-model="category"
-            clearable
-            placeholder="全部"
-            :disabled="status !== 'ready'"
-          >
-            <el-option v-for="name in categories" :key="name" :label="name" :value="name" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-checkbox v-model="onlyChanges" :disabled="status !== 'ready'">只看有更新记录</el-checkbox>
-        </el-form-item>
-      </el-form>
-
-      <div v-loading="status === 'loading'" class="result">
-        <el-alert
-          v-if="status === 'error'"
-          title="价格数据加载失败"
-          type="error"
-          show-icon
-          :closable="false"
-        />
-        <el-empty v-else-if="status === 'ready' && filtered.length === 0" description="没有找到相关物品" />
-        <div v-else class="list">
-          <el-card
-            v-for="item in filtered"
-            :key="`${item.category}-${item.name}`"
-            shadow="hover"
-          >
-            <div class="item">
-              <el-image
-                v-if="iconFor(item)"
-                class="icon"
-                :src="iconFor(item)"
-                :alt="item.name"
-                fit="contain"
-              />
-              <div class="item-body">
-                <div class="name-row">
-                  <span class="name">{{ item.name }}</span>
-                  <el-tag type="warning" effect="plain">{{ item.category }}</el-tag>
-                </div>
-                <div class="price-row">
-                  <span class="price">{{ formatPrice(item.price) }}</span>
-                  <el-text type="info">约 {{ formatWan(item.price) }}</el-text>
-                </div>
-                <el-text class="updated" type="info" size="small">更新于 {{ item.updatedAt }}</el-text>
-                <div v-if="hasHistory(item)" class="history">
-                  <el-text type="info" size="small">更新记录</el-text>
-                  <el-timeline>
-                    <el-timeline-item
-                      v-for="(record, index) in priceRecords(item)"
-                      :key="index"
-                      :timestamp="record.updatedAt"
-                      placement="top"
-                    >
-                      <el-text v-if="record.source">{{ record.source }}</el-text>
-                      {{ formatPrice(record.price) }}
-                    </el-timeline-item>
-                  </el-timeline>
-                </div>
-              </div>
-            </div>
-          </el-card>
+  <el-container class="shell">
+    <el-aside width="248px" class="sider">
+      <div class="brand">
+        <div class="logo">价</div>
+        <div>
+          <strong>梦幻全区物价助手</strong>
+          <p>收购高卖 / 摊位捡漏 / 仓库管理</p>
         </div>
       </div>
-    </el-main>
+      <el-menu
+        :default-active="active"
+        :default-openeds="['buy', 'stall']"
+        background-color="#0f172a"
+        text-color="#cbd5e1"
+        active-text-color="#ffffff"
+        router
+      >
+        <el-menu-item index="/">首页</el-menu-item>
+        <el-sub-menu index="buy">
+          <template #title>收购高卖</template>
+          <el-menu-item index="/buy/today">今日摊位物价</el-menu-item>
+          <el-menu-item index="/buy/region">全区物价</el-menu-item>
+          <el-menu-item index="/buy/market">行情列表</el-menu-item>
+          <el-menu-item index="/buy/bargains">捡漏集合</el-menu-item>
+          <el-menu-item index="/buy/trends">趋势报表</el-menu-item>
+        </el-sub-menu>
+        <el-sub-menu index="stall">
+          <template #title>摆摊</template>
+          <el-menu-item index="/stall/data">摊位数据</el-menu-item>
+          <el-menu-item index="/stall/today">今天摊位物价</el-menu-item>
+          <el-menu-item index="/stall/region">全区物价</el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/screenshot">卖号截图助手</el-menu-item>
+        <el-menu-item index="/warehouse">仓库管理</el-menu-item>
+      </el-menu>
+      <div class="sider-foot">
+        <el-text class="who">当前用户</el-text>
+        <el-button type="primary" class="login" @click="loginOpen = true">微信小程序扫码登录</el-button>
+        <p>本地物价可以直接查。扫码登录是原站采集用的，这里不会跳走。</p>
+      </div>
+    </el-aside>
+
+    <el-container>
+      <el-header class="top" height="64px">
+        <div class="top-links">
+          <el-button link @click="router.push('/')">梦幻工具箱</el-button>
+          <el-button link @click="noticeOpen = true">更新公告</el-button>
+          <el-button link @click="feedbackOpen = true">反馈</el-button>
+          <el-button link @click="notifyOpen = true">通知</el-button>
+        </div>
+        <div class="top-tools">
+          <el-radio-group v-model="serverGroup" size="small">
+            <el-radio-button value="正式服">正式服</el-radio-button>
+            <el-radio-button value="畅玩服">畅玩服</el-radio-button>
+          </el-radio-group>
+          <el-dropdown trigger="click" @command="pickServer">
+            <el-input v-model="serverQuery" :placeholder="`搜索区服，例如：${serverName}`" :prefix-icon="Search" />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="name in matchedServers" :key="name" :command="name">{{ name }}</el-dropdown-item>
+                <el-dropdown-item v-if="matchedServers.length === 0" disabled>没有这个区服</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+      </el-header>
+      <el-main class="main">
+        <router-view />
+      </el-main>
+    </el-container>
+
+    <el-dialog v-model="noticeOpen" title="更新公告" width="520px">
+      <el-tag type="success" effect="plain">正式发布</el-tag>
+      <h3>本地物价助手</h3>
+      <p>查价、全区分类、捡漏和更新记录使用已经录入的 prices.json。原站的微信扫码采集没有接进来。</p>
+      <template #footer>
+        <el-button type="primary" @click="noticeOpen = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="feedbackOpen" title="反馈" width="480px">
+      <el-input v-model="feedback" type="textarea" :rows="4" placeholder="价格不对、缺图标，或页面哪里别扭" />
+      <el-text v-if="feedbackSent" type="success">已留在本页，不会发送到原站。</el-text>
+      <template #footer>
+        <el-button @click="feedbackOpen = false">取消</el-button>
+        <el-button type="primary" @click="sendFeedback">提交</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="notifyOpen" title="通知" width="480px">
+      <el-empty v-if="false" />
+      <el-text>当前区服：{{ serverGroup }} · {{ serverName }}。物价来自本地录入。</el-text>
+    </el-dialog>
+
+    <el-dialog v-model="loginOpen" title="微信小程序扫码登录" width="420px">
+      <p>原站登录后才能看它自己的采集数据。这个副本直接使用本地物价，不需要扫码。</p>
+      <template #footer>
+        <el-button type="primary" @click="loginOpen = false">知道了</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
 <style scoped>
-.page {
-  max-width: 760px;
-  margin: 0 auto;
+.shell {
   min-height: 100vh;
+  background: #f3f6fb;
 }
 
-.header {
-  padding: 28px 20px 0;
+.sider {
+  background: #0f172a;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
 }
 
-.header h1 {
-  margin: 0;
-  font-size: 28px;
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 16px 14px 8px;
+}
+
+.brand strong {
+  display: block;
+  color: #fff;
+  font-size: 14px;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1677ff;
+  color: #fff;
+  display: grid;
+  place-items: center;
   font-weight: 700;
 }
 
-.meta {
-  display: block;
-  margin-top: 8px;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-
-.filters :deep(.el-form-item) {
-  margin-right: 0;
-  margin-bottom: 8px;
-}
-
-.filters :deep(.el-input) {
-  width: 280px;
-}
-
-.filters :deep(.el-select) {
-  width: 160px;
-}
-
-.result {
-  min-height: 120px;
-}
-
-.list {
-  display: grid;
-  gap: 12px;
-}
-
-.item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.item-body {
+.sider :deep(.el-menu) {
+  border-right: 0;
   flex: 1;
-  min-width: 0;
 }
 
-.icon {
-  width: 44px;
-  height: 44px;
-  flex: none;
+.sider :deep(.el-menu-item.is-active) {
+  background: #1677ff;
 }
 
-.icon :deep(img) {
-  image-rendering: pixelated;
+.sider-foot {
+  padding: 12px 14px 16px;
 }
 
-.name-row,
-.price-row {
+.who {
+  color: #94a3b8;
+}
+
+.login {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.sider-foot p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.top {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.name {
-  font-size: 18px;
-  font-weight: 700;
+.top-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.price {
-  margin-top: 8px;
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
+.top-tools :deep(.el-input) {
+  width: 240px;
 }
 
-.updated {
-  display: block;
-  margin-top: 6px;
+.main {
+  padding: 20px;
 }
 
-.history {
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--el-border-color-lighter);
-}
-
-.history :deep(.el-timeline) {
-  margin-top: 12px;
-  padding-left: 2px;
-}
-
-@media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filters :deep(.el-form-item) {
-    display: flex;
-    width: 100%;
-  }
-
-  .filters :deep(.el-form-item__content) {
-    flex: 1;
-  }
-
-  .filters :deep(.el-input),
-  .filters :deep(.el-select) {
-    width: 100%;
+@media (max-width: 800px) {
+  .sider {
+    display: none;
   }
 }
 </style>
