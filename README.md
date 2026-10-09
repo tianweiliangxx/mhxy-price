@@ -1,6 +1,6 @@
 # 梦幻西游道具价格
 
-道具单价记在 `prices.json`，单位是金币。调过价的物品用 `history` 保留旧价，`price` 是最新单价。
+道具单价记在数据库 `mhxy_price`，单位是金币。调过价的物品用 `history` 保留旧价，`price` 是最新单价。
 
 ## 当前价格
 
@@ -10,7 +10,7 @@
 
 ## 查询页面
 
-用 Vue 3、Vite 和 Element Plus 做的物价助手，布局参照梦幻全区物价助手：左侧是收购、摆摊、仓库等入口，查价数据来自根目录的 `prices.json`。
+用 Vue 3、Vite 和 Element Plus 做的物价助手，布局参照梦幻全区物价助手：左侧是收购、摆摊、仓库等入口，查价数据来自数据库。
 
 ```bash
 npm install

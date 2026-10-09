@@ -114,7 +114,7 @@ function sendFeedback() {
     <el-dialog v-model="noticeOpen" title="更新公告" width="520px">
       <el-tag type="success" effect="plain">正式发布</el-tag>
       <h3>本地物价助手</h3>
-      <p>查价、全区分类、捡漏和更新记录使用已经录入的 prices.json。原站的微信扫码采集没有接进来。</p>
+      <p>查价、全区分类、捡漏和更新记录使用已经录入的数据库物价。原站的微信扫码采集没有接进来。</p>
       <template #footer>
         <el-button type="primary" @click="noticeOpen = false">关闭</el-button>
       </template>

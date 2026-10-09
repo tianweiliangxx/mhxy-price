@@ -4,57 +4,18 @@ import { pinyin } from 'pinyin-pro'
 export const catalog = ref(null)
 export const status = ref('idle')
 
-const CAPTURE_KEY = 'mhxy-captured-items'
-
-function readCaptured() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CAPTURE_KEY) || '[]')
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function mergeCaptured(items, captured) {
-  const merged = [...items]
-  for (const row of captured) {
-    const index = merged.findIndex((item) => item.name === row.name && item.category === row.category)
-    if (index < 0) {
-      merged.push(row)
-      continue
-    }
-    if (merged[index].price === row.price) continue
-    merged[index] = {
-      ...merged[index],
-      history: [
-        ...(merged[index].history || []),
-        {
-          price: merged[index].price,
-          updatedAt: merged[index].updatedAt,
-          source: merged[index].source || '录入',
-        },
-      ],
-      price: row.price,
-      updatedAt: row.updatedAt,
-      source: row.source,
-    }
-  }
-  return merged
-}
-
 let pending = null
 
 export function loadPrices() {
   if (catalog.value || pending) return pending
   status.value = 'loading'
-  pending = fetch('/prices.json')
+  pending = fetch('/api/items')
     .then((response) => {
       if (!response.ok) throw new Error(String(response.status))
       return response.json()
     })
     .then((data) => {
       if (!data || !Array.isArray(data.items)) throw new Error('invalid prices')
-      data.items = mergeCaptured(data.items, readCaptured())
       catalog.value = data
       status.value = 'ready'
       return data
@@ -131,7 +92,7 @@ export function matchItems(items, query) {
   return ranked.flat()
 }
 
-export function addRecognizedItems(rows, side) {
+export async function addRecognizedItems(rows, side) {
   const today = new Date().toISOString().slice(0, 10)
   const category = side === '摆摊' ? '摆摊' : '收购'
   const incoming = rows.map((row) => ({
@@ -141,37 +102,17 @@ export function addRecognizedItems(rows, side) {
     updatedAt: today,
     source: '画面识别',
   }))
-  const saved = readCaptured()
-  for (const row of incoming) {
-    const index = saved.findIndex((item) => item.name === row.name && item.category === row.category)
-    if (index < 0) {
-      saved.push(row)
-      continue
-    }
-    if (saved[index].price === row.price) continue
-    saved[index] = {
-      ...row,
-      history: [
-        ...(saved[index].history || []),
-        {
-          price: saved[index].price,
-          updatedAt: saved[index].updatedAt,
-          source: saved[index].source,
-        },
-      ],
-    }
+  const response = await fetch('/api/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(incoming),
+  })
+  if (!response.ok) {
+    throw new Error('没有写入数据库')
   }
-  localStorage.setItem(CAPTURE_KEY, JSON.stringify(saved))
-  if (catalog.value) {
-    catalog.value = {
-      ...catalog.value,
-      items: mergeCaptured(
-        catalog.value.items.filter((item) => item.source !== '画面识别'),
-        saved,
-      ),
-    }
-  }
-  return saved
+  catalog.value = null
+  pending = null
+  return loadPrices()
 }
 
 export function priceDrop(item) {

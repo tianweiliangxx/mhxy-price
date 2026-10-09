@@ -140,10 +140,18 @@ function onFile(upload, mode) {
   recognizeSource(upload.raw, mode)
 }
 
-function saveRows() {
+async function saveRows() {
   const priced = rows.value.filter((row) => row.price)
-  addRecognizedItems(priced, route.meta.side)
-  liveText.value = priced.length ? '已写入本地物价，可在行情列表查看' : '没有可写入的价格'
+  if (!priced.length) {
+    liveText.value = '没有可写入的价格'
+    return
+  }
+  try {
+    await addRecognizedItems(priced, route.meta.side)
+    liveText.value = '已写入物价，可在行情列表查看'
+  } catch (error) {
+    liveText.value = error instanceof Error ? error.message : '没有写入数据库'
+  }
 }
 
 onBeforeUnmount(releaseVideo)
