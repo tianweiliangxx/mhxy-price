@@ -5,12 +5,10 @@ import { recognizeWithMimo } from '../lib/mimo.js'
 import { addRecognizedItems } from '../lib/prices.js'
 
 const route = useRoute()
-const liveText = ref('等待录屏/OBS识别')
-const running = ref(false)
+const liveText = ref('点一次按钮，只截一张画面并识别一次')
 const recognizing = ref(false)
 const rows = ref([])
 const videoRef = ref(null)
-let stream = null
 
 const itemCount = computed(() => new Set(rows.value.map((row) => row.name)).size)
 const topPrice = computed(() => {
@@ -18,28 +16,17 @@ const topPrice = computed(() => {
   return prices.length ? Math.max(...prices) : null
 })
 
-function stop() {
-  stream?.getTracks().forEach((track) => track.stop())
-  stream = null
-  running.value = false
-  if (videoRef.value) videoRef.value.srcObject = null
-  liveText.value = '等待录屏/OBS识别'
-}
-
-async function startScreen() {
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
-    running.value = true
-    liveText.value = '录屏已连接，可以识别当前画面'
-    if (videoRef.value) videoRef.value.srcObject = stream
-    stream.getVideoTracks()[0].addEventListener('ended', stop)
-  } catch {
-    liveText.value = '没有拿到画面'
+function releaseVideo() {
+  const video = videoRef.value
+  const current = video?.srcObject
+  if (current && typeof current.getTracks === 'function') {
+    current.getTracks().forEach((track) => track.stop())
   }
+  if (video) video.srcObject = null
 }
 
 function startObs() {
-  liveText.value = 'OBS 地址是 127.0.0.1:4455。当前页面还不能直接接收 OBS 画面，可以先用截图识别。'
+  liveText.value = 'OBS 地址是 127.0.0.1:4455。当前页面不会自动识别，点按钮才会截一张图。'
 }
 
 function toJpeg(source) {
@@ -70,6 +57,7 @@ function toJpeg(source) {
 }
 
 async function recognizeSource(source) {
+  if (recognizing.value) return
   recognizing.value = true
   liveText.value = '正在让 MiMo 识别这张画面'
   try {
@@ -78,7 +66,7 @@ async function recognizeSource(source) {
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
     }))
-    liveText.value = `认出 ${rows.value.length} 条`
+    liveText.value = `认出 ${rows.value.length} 条。再点一次才会再识别。`
   } catch (error) {
     rows.value = []
     liveText.value = error instanceof Error ? error.message : '识别失败'
@@ -97,23 +85,47 @@ function waitForFrame(video) {
   })
 }
 
-async function recognizeFrame() {
-  const video = videoRef.value
-  if (!video?.videoWidth) {
-    liveText.value = '还没有画面。请先点录屏识别，并在预览里看到游戏窗口。'
-    return
-  }
+async function captureAndRecognize() {
+  if (recognizing.value) return
+  recognizing.value = true
+  liveText.value = '请选择要截取的窗口'
+  let stream = null
   try {
-    await video.play()
-  } catch {
-    // 自动播放被拦住时，仍然用当前这一帧。
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+    const video = videoRef.value
+    video.srcObject = stream
+    try {
+      await video.play()
+    } catch {
+      // 自动播放被拦住时，仍然用当前这一帧。
+    }
+    await waitForFrame(video)
+    await waitForFrame(video)
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    stream.getTracks().forEach((track) => track.stop())
+    stream = null
+    video.srcObject = null
+    liveText.value = '正在让 MiMo 识别这张画面'
+    const items = await recognizeWithMimo(await toJpeg(canvas))
+    rows.value = items.map((item) => ({
+      ...item,
+      category: route.meta.side === '摆摊' ? '摆摊' : '收购',
+    }))
+    liveText.value = `认出 ${rows.value.length} 条。再点一次才会再识别。`
+  } catch (error) {
+    rows.value = []
+    const cancelled = error instanceof DOMException && error.name === 'NotAllowedError'
+    liveText.value = cancelled || !(error instanceof Error) || error.message === '没有收到画面'
+      ? '没有拿到画面'
+      : error.message
+  } finally {
+    stream?.getTracks().forEach((track) => track.stop())
+    releaseVideo()
+    recognizing.value = false
   }
-  await waitForFrame(video)
-  const canvas = document.createElement('canvas')
-  canvas.width = video.videoWidth
-  canvas.height = video.videoHeight
-  canvas.getContext('2d').drawImage(video, 0, 0)
-  recognizeSource(canvas)
 }
 
 function onFile(upload) {
@@ -126,22 +138,20 @@ function saveRows() {
   liveText.value = priced.length ? '已写入本地物价，可在行情列表查看' : '没有可写入的价格'
 }
 
-onBeforeUnmount(stop)
+onBeforeUnmount(releaseVideo)
 </script>
 
 <template>
   <section>
     <el-card shadow="never">
-      <template #header>{{ route.meta.side === '摆摊' ? '摆摊实时识别' : '识别控制' }}</template>
-      <el-alert title="识别交给本机后台，由 MiMo 看这张画面里的物品和价格。" type="info" show-icon :closable="false" />
+      <template #header>{{ route.meta.side === '摆摊' ? '摆摊识别' : '摊位识别' }}</template>
+      <el-alert title="点一次只截一张画面，再调一次 MiMo。不会在录屏期间连续识别。" type="info" show-icon :closable="false" />
       <el-alert class="warn" type="warning" show-icon :closable="false" title="采集画面仅稳定支持 1024×768 分辨率">
         <p>请将游戏窗口设置为 1024×768，并避免缩小共享窗口。</p>
       </el-alert>
       <el-space wrap>
-        <el-button @click="startScreen">录屏识别</el-button>
+        <el-button type="primary" :disabled="recognizing" @click="captureAndRecognize">截取窗口并识别</el-button>
         <el-button @click="startObs">OBS识别</el-button>
-        <el-button :disabled="!running" @click="stop">停止采集</el-button>
-        <el-button :disabled="!running || recognizing" @click="recognizeFrame">识别当前画面</el-button>
         <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onFile">
           <el-button :disabled="recognizing">识别截图</el-button>
         </el-upload>
@@ -149,7 +159,7 @@ onBeforeUnmount(stop)
       <video ref="videoRef" class="preview" autoplay muted playsinline />
     </el-card>
     <el-card shadow="never" class="block">
-      <template #header>实时识别状态</template>
+      <template #header>识别状态</template>
       <el-text type="info">{{ liveText }}</el-text>
     </el-card>
     <el-card shadow="never" class="block">
