@@ -6,6 +6,7 @@ import { addRecognizedItems } from '../lib/prices.js'
 
 const route = useRoute()
 const liveText = ref('点一次按钮，只截一张画面并识别一次')
+const reasoning = ref('')
 const recognizing = ref(false)
 const rows = ref([])
 const videoRef = ref(null)
@@ -61,8 +62,11 @@ async function recognizeSource(source, mode) {
   if (recognizing.value) return
   recognizing.value = true
   liveText.value = '正在让 MiMo 识别这张画面'
+  reasoning.value = ''
   try {
-    const items = await recognizeWithMimo(await toJpeg(source), mode)
+    const items = await recognizeWithMimo(await toJpeg(source), mode, (text) => {
+      reasoning.value += text
+    })
     rows.value = items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
@@ -110,7 +114,10 @@ async function captureAndRecognize(mode) {
     stream = null
     video.srcObject = null
     liveText.value = '正在让 MiMo 识别这张画面'
-    const items = await recognizeWithMimo(await toJpeg(canvas), mode)
+    reasoning.value = ''
+    const items = await recognizeWithMimo(await toJpeg(canvas), mode, (text) => {
+      reasoning.value += text
+    })
     rows.value = items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
@@ -174,6 +181,16 @@ onBeforeUnmount(releaseVideo)
     <el-card shadow="never" class="block">
       <template #header>识别状态</template>
       <el-text type="info">{{ liveText }}</el-text>
+    </el-card>
+    <el-card shadow="never" class="block">
+      <template #header>推理过程</template>
+      <el-input
+        :model-value="reasoning"
+        type="textarea"
+        readonly
+        :rows="8"
+        placeholder="点识别后，MiMo 的推理会显示在这里，结束后仍保留。"
+      />
     </el-card>
     <el-card shadow="never" class="block">
       <template #header>本次采集最高价</template>

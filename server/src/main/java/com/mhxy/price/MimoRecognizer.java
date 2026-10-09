@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.function.Consumer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -104,7 +108,7 @@ public class MimoRecognizer {
     this.client = RestClient.create();
   }
 
-  public List<RecognizedItem> recognize(byte[] image, String mode) {
+  public RecognizeOutcome recognize(byte[] image, String mode, Consumer<String> onReasoning) {
     String prompt = promptFor(mode);
     String apiKey = properties.apiKey() == null ? "" : properties.apiKey().trim();
     if (apiKey.isEmpty()) {
@@ -112,28 +116,52 @@ public class MimoRecognizer {
     }
     String baseUrl = properties.baseUrl().replaceAll("/$", "");
     ObjectNode body = requestBody(image, prompt);
-    JsonNode response;
+    StringBuilder reasoning = new StringBuilder();
+    StringBuilder answer = new StringBuilder();
     try {
-      response = client.post()
+      client.post()
           .uri(baseUrl + "/chat/completions")
           .header("Authorization", "Bearer " + apiKey)
           .header("api-key", apiKey)
           .contentType(MediaType.APPLICATION_JSON)
           .body(body)
-          .retrieve()
-          .body(JsonNode.class);
+          .exchange((request, response) -> {
+            if (response.getStatusCode().isError()) {
+              throw new RecognizeException(HttpStatus.BAD_GATEWAY, "MiMo 拒绝了这次识别");
+            }
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(response.getBody(), StandardCharsets.UTF_8))) {
+              String line;
+              while ((line = reader.readLine()) != null) {
+                readLine(line, reasoning, answer, onReasoning);
+              }
+            }
+            return null;
+          });
+    } catch (RecognizeException error) {
+      throw error;
     } catch (RestClientException error) {
       throw new RecognizeException(HttpStatus.BAD_GATEWAY, "MiMo 拒绝了这次识别");
     }
-    if (response == null) {
-      throw new RecognizeException(HttpStatus.BAD_GATEWAY, "MiMo 拒绝了这次识别");
+    return new RecognizeOutcome(ItemJson.parse(answer.toString()), reasoning.toString());
+  }
+
+  private void readLine(String line, StringBuilder reasoning, StringBuilder answer, Consumer<String> onReasoning) {
+    String payload = line.startsWith("data:") ? line.substring(5).trim() : line.trim();
+    if (payload.isEmpty() || "[DONE]".equals(payload)) {
+      return;
     }
-    String content = response.path("choices").path(0).path("message").path("content").asText("");
-    List<RecognizedItem> items = ItemJson.parse(content);
-    if (items.isEmpty()) {
-      throw new RecognizeException(HttpStatus.UNPROCESSABLE_ENTITY, "没有认出物品");
+    JsonNode chunk;
+    try {
+      chunk = mapper.readTree(payload);
+    } catch (Exception error) {
+      return;
     }
-    return items;
+    int before = reasoning.length();
+    MimoChunks.append(chunk, reasoning, answer);
+    if (reasoning.length() > before) {
+      onReasoning.accept(reasoning.substring(before));
+    }
   }
 
   private ObjectNode requestBody(byte[] image, String prompt) {
@@ -153,7 +181,9 @@ public class MimoRecognizer {
     ObjectNode body = mapper.createObjectNode();
     body.put("model", properties.model());
     body.set("messages", mapper.createArrayNode().add(message));
-    body.put("temperature", 0.2);
+    body.put("stream", true);
+    body.put("max_completion_tokens", 8192);
+    body.set("thinking", mapper.createObjectNode().put("type", "enabled"));
     return body;
   }
 }
