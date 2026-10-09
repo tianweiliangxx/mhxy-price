@@ -116,8 +116,8 @@ async function captureAndRecognize() {
     }))
     liveText.value = `认出 ${rows.value.length} 条。再点一次才会再识别。`
   } catch (error) {
-    rows.value = []
     const cancelled = error instanceof DOMException && error.name === 'NotAllowedError'
+    if (!cancelled) rows.value = []
     liveText.value = cancelled || !(error instanceof Error) || error.message === '没有收到画面'
       ? '没有拿到画面'
       : error.message
