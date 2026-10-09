@@ -6,6 +6,13 @@ spring:
     url: jdbc:mysql://39.104.80.253:13306/mhxy_price?createDatabaseIfNotExist=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
     password: ${DB_PASSWORD}
+    hikari:
+      pool-name: mhxy-price
+      maximum-pool-size: 2
+      minimum-idle: 0
+      idle-timeout: 10000
+      max-lifetime: 60000
+      keepalive-time: 0
   sql:
     init:
       mode: always
