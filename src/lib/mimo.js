@@ -1,6 +1,7 @@
-export async function recognizeWithMimo(blob) {
+export async function recognizeWithMimo(blob, mode) {
   const body = new FormData()
   body.append('image', blob, 'frame.jpg')
+  body.append('mode', mode)
   let response
   try {
     response = await fetch('/api/recognize', { method: 'POST', body })

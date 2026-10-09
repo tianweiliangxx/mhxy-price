@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,11 +21,13 @@ public class RecognizeController {
   }
 
   @PostMapping("/api/recognize")
-  public Map<String, List<RecognizedItem>> recognize(@RequestPart("image") MultipartFile image) throws IOException {
+  public Map<String, List<RecognizedItem>> recognize(
+      @RequestPart("image") MultipartFile image,
+      @RequestParam("mode") String mode) throws IOException {
     if (image == null || image.isEmpty()) {
       throw new RecognizeException(HttpStatus.BAD_REQUEST, "没有收到画面");
     }
-    return Map.of("items", recognizer.recognize(image.getBytes()));
+    return Map.of("items", recognizer.recognize(image.getBytes(), mode));
   }
 
   @ExceptionHandler(RecognizeException.class)

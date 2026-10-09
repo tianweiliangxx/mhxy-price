@@ -10,6 +10,7 @@ const recognizing = ref(false)
 const rows = ref([])
 const videoRef = ref(null)
 
+const selling = computed(() => route.meta.side === '摆摊')
 const itemCount = computed(() => new Set(rows.value.map((row) => row.name)).size)
 const topPrice = computed(() => {
   const prices = rows.value.map((row) => row.price).filter((price) => price)
@@ -56,12 +57,12 @@ function toJpeg(source) {
   }))
 }
 
-async function recognizeSource(source) {
+async function recognizeSource(source, mode) {
   if (recognizing.value) return
   recognizing.value = true
   liveText.value = '正在让 MiMo 识别这张画面'
   try {
-    const items = await recognizeWithMimo(await toJpeg(source))
+    const items = await recognizeWithMimo(await toJpeg(source), mode)
     rows.value = items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
@@ -85,7 +86,7 @@ function waitForFrame(video) {
   })
 }
 
-async function captureAndRecognize() {
+async function captureAndRecognize(mode) {
   if (recognizing.value) return
   recognizing.value = true
   liveText.value = '请选择要截取的窗口'
@@ -109,7 +110,7 @@ async function captureAndRecognize() {
     stream = null
     video.srcObject = null
     liveText.value = '正在让 MiMo 识别这张画面'
-    const items = await recognizeWithMimo(await toJpeg(canvas))
+    const items = await recognizeWithMimo(await toJpeg(canvas), mode)
     rows.value = items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
@@ -128,8 +129,8 @@ async function captureAndRecognize() {
   }
 }
 
-function onFile(upload) {
-  recognizeSource(upload.raw)
+function onFile(upload, mode) {
+  recognizeSource(upload.raw, mode)
 }
 
 function saveRows() {
@@ -144,17 +145,29 @@ onBeforeUnmount(releaseVideo)
 <template>
   <section>
     <el-card shadow="never">
-      <template #header>{{ route.meta.side === '摆摊' ? '摆摊识别' : '摊位识别' }}</template>
+      <template #header>{{ selling ? '摆摊识别' : '收购识别' }}</template>
       <el-alert title="点一次只截一张画面，再调一次 MiMo。不会在录屏期间连续识别。" type="info" show-icon :closable="false" />
       <el-alert class="warn" type="warning" show-icon :closable="false" title="采集画面仅稳定支持 1024×768 分辨率">
         <p>请将游戏窗口设置为 1024×768，并避免缩小共享窗口。</p>
       </el-alert>
       <el-space wrap>
-        <el-button type="primary" :disabled="recognizing" @click="captureAndRecognize">截取窗口并识别</el-button>
+        <template v-if="selling">
+          <el-button type="primary" :disabled="recognizing" @click="captureAndRecognize('sell-stall')">摊位识别</el-button>
+          <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="(file) => onFile(file, 'sell-stall')">
+            <el-button :disabled="recognizing">识别截图</el-button>
+          </el-upload>
+        </template>
+        <template v-else>
+          <el-button type="primary" :disabled="recognizing" @click="captureAndRecognize('buy-stall')">收购摊位识别</el-button>
+          <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="(file) => onFile(file, 'buy-stall')">
+            <el-button :disabled="recognizing">识别收购截图</el-button>
+          </el-upload>
+          <el-button type="primary" :disabled="recognizing" @click="captureAndRecognize('buy-chat')">喊话收购识别</el-button>
+          <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="(file) => onFile(file, 'buy-chat')">
+            <el-button :disabled="recognizing">识别喊话截图</el-button>
+          </el-upload>
+        </template>
         <el-button @click="startObs">OBS识别</el-button>
-        <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onFile">
-          <el-button :disabled="recognizing">识别截图</el-button>
-        </el-upload>
       </el-space>
       <video ref="videoRef" class="preview" autoplay muted playsinline />
     </el-card>
