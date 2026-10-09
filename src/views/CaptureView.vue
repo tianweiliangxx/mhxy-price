@@ -1,12 +1,10 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { recognizeWithMimo } from '../lib/mimo.js'
 import { addRecognizedItems } from '../lib/prices.js'
-import { loadRecognizer, recognizeImage } from '../lib/recognize.js'
 
 const route = useRoute()
-const modelText = ref('正在加载本地识别模型...')
-const modelReady = ref(false)
 const liveText = ref('等待录屏/OBS识别')
 const running = ref(false)
 const recognizing = ref(false)
@@ -20,17 +18,6 @@ const topPrice = computed(() => {
   return prices.length ? Math.max(...prices) : null
 })
 
-onMounted(() => {
-  loadRecognizer((message) => {
-    if (message.status) modelText.value = `正在加载本地识别模型...${message.status}`
-  }).then(() => {
-    modelReady.value = true
-    modelText.value = '物品文字检测和价格识别模型已加载。可以对录屏画面或截图识别。'
-  }).catch(() => {
-    modelText.value = '识别模型加载失败。请检查网络后点刷新。'
-  })
-})
-
 function stop() {
   stream?.getTracks().forEach((track) => track.stop())
   stream = null
@@ -40,10 +27,6 @@ function stop() {
 }
 
 async function startScreen() {
-  if (!modelReady.value) {
-    liveText.value = '模型还在加载'
-    return
-  }
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
     running.value = true
@@ -59,21 +42,46 @@ function startObs() {
   liveText.value = 'OBS 地址是 127.0.0.1:4455。当前页面还不能直接接收 OBS 画面，可以先用截图识别。'
 }
 
+function toJpeg(source) {
+  const canvas = source instanceof HTMLCanvasElement ? source : null
+  const drawFile = () => new Promise((resolve, reject) => {
+    const image = new Image()
+    const url = URL.createObjectURL(source)
+    image.onload = () => {
+      const frame = document.createElement('canvas')
+      frame.width = image.width
+      frame.height = image.height
+      frame.getContext('2d').drawImage(image, 0, 0)
+      URL.revokeObjectURL(url)
+      resolve(frame)
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('没有收到画面'))
+    }
+    image.src = url
+  })
+  return Promise.resolve(canvas || drawFile()).then((frame) => new Promise((resolve, reject) => {
+    frame.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('没有收到画面'))
+    }, 'image/jpeg', 0.85)
+  }))
+}
+
 async function recognizeSource(source) {
   recognizing.value = true
-  liveText.value = '正在识别物品和价格'
+  liveText.value = '正在让 MiMo 识别这张画面'
   try {
-    const found = await recognizeImage(source)
-    rows.value = found.items.map((item) => ({
+    const items = await recognizeWithMimo(await toJpeg(source))
+    rows.value = items.map((item) => ({
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
     }))
-    const size = found.width ? `画面 ${found.width}×${found.height}，` : ''
-    liveText.value = rows.value.length
-      ? `${size}认出 ${rows.value.length} 条`
-      : `${size}这一帧没有认出物品。模型原文：${found.text.slice(0, 80) || '空'}`
-  } catch {
-    liveText.value = '识别失败'
+    liveText.value = `认出 ${rows.value.length} 条`
+  } catch (error) {
+    rows.value = []
+    liveText.value = error instanceof Error ? error.message : '识别失败'
   } finally {
     recognizing.value = false
   }
@@ -118,17 +126,6 @@ function saveRows() {
   liveText.value = priced.length ? '已写入本地物价，可在行情列表查看' : '没有可写入的价格'
 }
 
-function reloadModel() {
-  modelReady.value = false
-  modelText.value = '正在加载本地识别模型...'
-  loadRecognizer((message) => {
-    if (message.status) modelText.value = `正在加载本地识别模型...${message.status}`
-  }).then(() => {
-    modelReady.value = true
-    modelText.value = '物品文字检测和价格识别模型已加载。可以对录屏画面或截图识别。'
-  })
-}
-
 onBeforeUnmount(stop)
 </script>
 
@@ -136,19 +133,18 @@ onBeforeUnmount(stop)
   <section>
     <el-card shadow="never">
       <template #header>{{ route.meta.side === '摆摊' ? '摆摊实时识别' : '识别控制' }}</template>
-      <el-alert :title="modelText" :type="modelReady ? 'success' : 'info'" show-icon :closable="false" />
+      <el-alert title="识别交给本机后台，由 MiMo 看这张画面里的物品和价格。" type="info" show-icon :closable="false" />
       <el-alert class="warn" type="warning" show-icon :closable="false" title="采集画面仅稳定支持 1024×768 分辨率">
         <p>请将游戏窗口设置为 1024×768，并避免缩小共享窗口。</p>
       </el-alert>
       <el-space wrap>
-        <el-button :disabled="!modelReady" @click="startScreen">录屏识别</el-button>
+        <el-button @click="startScreen">录屏识别</el-button>
         <el-button @click="startObs">OBS识别</el-button>
         <el-button :disabled="!running" @click="stop">停止采集</el-button>
-        <el-button :disabled="!modelReady || recognizing" @click="recognizeFrame">识别当前画面</el-button>
+        <el-button :disabled="!running || recognizing" @click="recognizeFrame">识别当前画面</el-button>
         <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" :on-change="onFile">
-          <el-button :disabled="!modelReady || recognizing">识别截图</el-button>
+          <el-button :disabled="recognizing">识别截图</el-button>
         </el-upload>
-        <el-button @click="reloadModel">刷新</el-button>
       </el-space>
       <video ref="videoRef" class="preview" autoplay muted playsinline />
     </el-card>

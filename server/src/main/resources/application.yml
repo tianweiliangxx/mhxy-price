@@ -1,0 +1,7 @@
+server:
+  port: 8080
+
+mimo:
+  api-key: ${MIMO_API_KEY:}
+  base-url: ${MIMO_BASE_URL:https://token-plan-cn.xiaomimimo.com/v1}
+  model: ${MIMO_MODEL:mimo-v2.6-flash}
