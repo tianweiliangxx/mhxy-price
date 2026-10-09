@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import ItemLabel from '../components/ItemLabel.vue'
 import { catalog, formatPrice, loadPrices, quoteOf } from '../lib/prices.js'
 
 const KEY = 'mhxy-alerts'
@@ -35,7 +36,7 @@ function patch(name, field, value) {
     <el-text type="info">当前价高于固定价，或高于均价一定比例时记一笔。规则保存在这台浏览器。</el-text>
     <el-table class="table" :data="rows">
       <el-table-column label="物品" min-width="140">
-        <template #default="{ row }">{{ row.item.name }}</template>
+        <template #default="{ row }"><ItemLabel :item="row.item" /></template>
       </el-table-column>
       <el-table-column label="系列" width="120">
         <template #default="{ row }">{{ row.item.category }}</template>

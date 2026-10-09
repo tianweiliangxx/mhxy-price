@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { catalog, formatPrice, formatRmb, formatWan, iconFor, loadPrices, matchItems, quoteOf, status } from '../lib/prices.js'
+import ItemLabel from '../components/ItemLabel.vue'
+import { catalog, formatPrice, formatRmb, formatWan, loadPrices, matchItems, quoteOf, status } from '../lib/prices.js'
 import { serverGroup, serverName } from '../lib/session.js'
 
 const route = useRoute()
@@ -69,10 +70,7 @@ const rows = computed(() => {
         <el-table v-else :data="rows" stripe highlight-current-row @current-change="selected = $event">
           <el-table-column :label="sell ? '规格' : '物品'" min-width="180">
             <template #default="{ row }">
-              <div class="item">
-                <el-image v-if="iconFor(row.item)" class="icon" :src="iconFor(row.item)" fit="contain" />
-                <span>{{ row.item.name }}</span>
-              </div>
+              <ItemLabel :item="row.item" />
             </template>
           </el-table-column>
           <el-table-column label="分类" min-width="220">
@@ -115,7 +113,7 @@ const rows = computed(() => {
       <template #header>{{ sell ? '价格口径' : '摊位物价详情' }}</template>
       <el-empty v-if="!selected" :description="sell ? '选择规格' : '选择物品'" :image-size="64" />
       <div v-else>
-        <strong>{{ selected.item.name }}</strong>
+        <ItemLabel :item="selected.item" />
         <p>{{ selected.item.category }} · {{ formatWan(selected.item.price) }}</p>
         <p v-if="showRmb">约 {{ formatRmb(selected.item.price) }}</p>
         <el-text type="info">来源 {{ selected.item.source || '录入' }} · {{ selected.item.updatedAt }}</el-text>
@@ -129,8 +127,5 @@ const rows = computed(() => {
 .page-head h2 { margin: 4px 0; }
 .filters { margin-bottom: 8px; }
 .dash { margin: 0 6px; color: var(--el-text-color-secondary); }
-.item { display: flex; align-items: center; gap: 8px; }
-.icon { width: 28px; height: 28px; }
-.icon :deep(img) { image-rendering: pixelated; }
 @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
 </style>

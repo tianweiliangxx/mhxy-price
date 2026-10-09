@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import ItemLabel from '../components/ItemLabel.vue'
 import { recognizeWithMimo } from '../lib/mimo.js'
 import { addRecognizedItems } from '../lib/prices.js'
 
@@ -263,7 +264,9 @@ onBeforeUnmount(releaseVideo)
       <el-empty v-if="rows.length === 0" description="还没有从画面里认出价格" />
       <template v-else>
         <el-table :data="rows" class="table">
-          <el-table-column prop="name" label="物品" />
+          <el-table-column label="物品" min-width="160">
+            <template #default="{ row }"><ItemLabel :name="row.name" /></template>
+          </el-table-column>
           <el-table-column label="分类" min-width="280">
             <template #default="{ row }">
               <span v-if="row.matched">{{ row.category }}</span>

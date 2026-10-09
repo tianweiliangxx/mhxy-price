@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ItemLabel from '../components/ItemLabel.vue'
 import { catalog, formatPrice, loadPrices, matchItems, specOf, status } from '../lib/prices.js'
 import { serverName } from '../lib/session.js'
 
@@ -63,9 +64,9 @@ function labelOf(row) {
         <el-empty v-if="status === 'ready' && seriesList.length === 0" description="这个分类没有录入" />
         <div v-else class="series">
           <el-card v-for="series in seriesList" :key="series.name" shadow="never">
-            <template #header>{{ series.name }}</template>
+            <template #header><ItemLabel :name="series.name" /></template>
             <div v-for="(row, index) in series.rows" :key="row.item.name" class="level">
-              <span>{{ labelOf(row) }}</span>
+              <ItemLabel :name="labelOf(row)" :item="row.item" />
               <strong :class="tone(index, series.rows.length)">{{ formatPrice(row.item.price) }}</strong>
             </div>
           </el-card>

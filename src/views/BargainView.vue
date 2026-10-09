@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted } from 'vue'
-import { catalog, formatPrice, iconFor, loadPrices, priceDrop, quoteOf, status } from '../lib/prices.js'
+import ItemLabel from '../components/ItemLabel.vue'
+import { catalog, formatPrice, loadPrices, priceDrop, quoteOf, status } from '../lib/prices.js'
 import { serverName } from '../lib/session.js'
 
 onMounted(() => { loadPrices().catch(() => {}) })
@@ -21,10 +22,7 @@ const rows = computed(() => (catalog.value?.items ?? [])
     <el-table v-loading="status === 'loading'" :data="rows" class="table">
       <el-table-column label="物品" min-width="160">
         <template #default="{ row }">
-          <div class="item">
-            <el-image v-if="iconFor(row.item)" class="icon" :src="iconFor(row.item)" fit="contain" />
-            {{ row.item.name }}
-          </div>
+          <ItemLabel :item="row.item" />
         </template>
       </el-table-column>
       <el-table-column label="当前价" width="120">
@@ -55,6 +53,4 @@ const rows = computed(() => (catalog.value?.items ?? [])
 <style scoped>
 h2 { margin: 0 0 12px; }
 .table { margin-top: 12px; }
-.item { display: flex; align-items: center; gap: 8px; }
-.icon { width: 28px; height: 28px; }
 </style>

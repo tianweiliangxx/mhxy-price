@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import ItemLabel from '../components/ItemLabel.vue'
 import { catalog, loadPrices, priceRecords, specOf, status } from '../lib/prices.js'
 
 const dateFrom = ref('2026-10-02')
@@ -65,7 +66,7 @@ const chart = computed(() => {
     <div class="tags">
       <el-text type="info">当前 {{ picked.length }} 个系列</el-text>
       <el-check-tag v-for="name in seriesOptions.slice(0, 12)" :key="name" :checked="picked.includes(name)" @change="(on) => { picked = on ? [...picked, name].slice(0, 24) : picked.filter((item) => item !== name) }">
-        {{ name }}
+        <ItemLabel :name="name" />
       </el-check-tag>
     </div>
     <el-card v-loading="status === 'loading'" shadow="never" class="chart-card">
@@ -74,7 +75,7 @@ const chart = computed(() => {
         <polyline v-for="line in chart" :key="line.name" :points="line.d" fill="none" :stroke="line.color" stroke-width="2" />
       </svg>
       <div v-if="chart" class="legend">
-        <span v-for="line in chart" :key="line.name"><i :style="{ background: line.color }" />{{ line.name }}</span>
+        <span v-for="line in chart" :key="line.name"><i :style="{ background: line.color }" /><ItemLabel :name="line.name" /></span>
       </div>
     </el-card>
   </section>

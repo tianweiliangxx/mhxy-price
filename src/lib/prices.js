@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { pinyin } from 'pinyin-pro'
+import itemIcons from './item-icons.json'
 
 export const catalog = ref(null)
 export const status = ref('idle')
@@ -28,19 +29,11 @@ export function loadPrices() {
   return pending
 }
 
-const icons = {
-  '炼妖石·105': '/icons/lianyaoshi.png',
-  '炼妖石·115': '/icons/lianyaoshi.png',
-  '炼妖石·125': '/icons/lianyaoshi.png',
-  顺逆神针: '/icons/shunnishenzhen.png',
-  储灵袋: '/icons/chulingdai.png',
-  玉灵果: '/icons/yulingguo.png',
-}
-
+// 映射表的键是目录里的物品名。文件名里的 ·、半角括号和全角括号被写成了下划线。
 export function iconFor(item) {
-  if (icons[item.name]) return icons[item.name]
-  if ((item.category || '').includes('召唤兽内丹') || (item.name || '').endsWith('内丹')) return '/icons/neidan.png'
-  return ''
+  const name = typeof item === 'string' ? item : item?.name
+  if (!name) return ''
+  return itemIcons[name] || ''
 }
 
 export function initialsOf(name) {

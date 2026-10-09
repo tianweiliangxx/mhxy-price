@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import ItemLabel from '../components/ItemLabel.vue'
 import { catalog, formatPrice, loadPrices } from '../lib/prices.js'
 import { profile } from '../lib/session.js'
 
@@ -60,7 +61,9 @@ function remove(index) {
     <el-form :inline="true" class="add" @submit.prevent>
       <el-form-item label="物品">
         <el-select v-model="picked" filterable placeholder="选择已录入物品" style="width: 260px">
-          <el-option v-for="option in options" :key="option.value" :label="option.label" :value="option.value" />
+          <el-option v-for="option in options" :key="option.value" :label="option.label" :value="option.value">
+            <ItemLabel :item="option.item" />
+          </el-option>
         </el-select>
       </el-form-item>
       <el-form-item label="数量">
@@ -71,7 +74,9 @@ function remove(index) {
       </el-form-item>
     </el-form>
     <el-table :data="rows">
-      <el-table-column prop="name" label="物品" />
+      <el-table-column label="物品">
+        <template #default="{ row }"><ItemLabel :name="row.name" /></template>
+      </el-table-column>
       <el-table-column prop="category" label="分类" width="120" />
       <el-table-column prop="quantity" label="数量" width="90" />
       <el-table-column label="单价" width="140">
