@@ -92,6 +92,18 @@ export function readItemsFromOcr(lines) {
   return items
 }
 
+export function readItemsFromText(text) {
+  const source = (text || '').replace(/单价/g, ' ')
+  const items = []
+  const pattern = /([\u4e00-\u9fff][\u4e00-\u9fff·]{1,7})\D{0,8}(\d{3,9})/g
+  let match = pattern.exec(source)
+  while (match) {
+    items.push({ name: match[1], price: Number(match[2]) })
+    match = pattern.exec(source)
+  }
+  return items
+}
+
 async function toCanvas(source) {
   if (source instanceof HTMLCanvasElement) return source
   const bitmap = await createImageBitmap(source)
@@ -120,23 +132,101 @@ function cropCard(source, card) {
   return canvas
 }
 
+function fitCanvas(source) {
+  const scaleUp = source.width < 1100 ? 2 : 1
+  let width = source.width * scaleUp
+  let height = source.height * scaleUp
+  const maxWidth = 1600
+  if (width > maxWidth) {
+    height = Math.round((height * maxWidth) / width)
+    width = maxWidth
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, width)
+  canvas.height = Math.max(1, height)
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  context.imageSmoothingEnabled = true
+  context.drawImage(source, 0, 0, canvas.width, canvas.height)
+  return canvas
+}
+
+function contrastCanvas(source, invert) {
+  const canvas = fitCanvas(source)
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  const image = context.getImageData(0, 0, canvas.width, canvas.height)
+  const { data } = image
+  let sum = 0
+  const gray = new Uint8Array(data.length / 4)
+  for (let pixel = 0, index = 0; index < data.length; pixel += 1, index += 4) {
+    const value = (data[index] * 0.3 + data[index + 1] * 0.59 + data[index + 2] * 0.11) | 0
+    gray[pixel] = value
+    sum += value
+  }
+  const mean = sum / gray.length
+  for (let pixel = 0, index = 0; pixel < gray.length; pixel += 1, index += 4) {
+    let value = invert ? 255 - gray[pixel] : gray[pixel]
+    const center = invert ? 255 - mean : mean
+    value = Math.max(0, Math.min(255, (value - center) * 2.4 + 128))
+    data[index] = value
+    data[index + 1] = value
+    data[index + 2] = value
+  }
+  context.putImageData(image, 0, 0)
+  return canvas
+}
+
+function scoreReading(reading) {
+  const priced = reading.items.filter((item) => item.price).length
+  const digits = (reading.text.match(/\d{3,}/g) || []).length
+  const letters = (reading.text.match(/[\u4e00-\u9fff]/g) || []).length
+  return priced * 100 + digits * 10 + letters
+}
+
+async function ocrCanvas(worker, canvas) {
+  await worker.setParameters({
+    tessedit_pageseg_mode: '11',
+    user_defined_dpi: '300',
+  })
+  const result = await worker.recognize(canvas)
+  const text = (result.data.text || '').replace(/\s+/g, ' ').trim()
+  return {
+    text,
+    items: dedupe([
+      ...readItemsFromOcr(result.data.lines || []),
+      ...readItemsFromText(text),
+    ]),
+  }
+}
+
 export async function recognizeImage(source, onProgress) {
   const worker = await loadRecognizer(onProgress)
   const frame = await toCanvas(source)
   const pixels = frame.getContext('2d').getImageData(0, 0, frame.width, frame.height)
-  const cards = detectItemCards(pixels).slice(0, 16)
+  const cards = detectItemCards(pixels)
+    .filter((card) => card.width >= 40 && card.width <= 420 && card.height >= 28 && card.height <= 240)
+    .slice(0, 8)
   const found = []
   if (cards.length >= 2) {
     for (const card of cards) {
-      const result = await worker.recognize(cropCard(frame, card))
-      found.push(...readItemsFromOcr(result.data.lines || []))
+      const reading = await ocrCanvas(worker, contrastCanvas(cropCard(frame, card), false))
+      found.push(...reading.items.filter((item) => item.price))
     }
   }
-  if (found.length) return { items: dedupe(found), text: '' }
-  const result = await worker.recognize(frame)
+  if (found.length) {
+    return { items: dedupe(found), text: '', width: frame.width, height: frame.height }
+  }
+
+  const readings = []
+  for (const invert of [false, true]) {
+    readings.push(await ocrCanvas(worker, contrastCanvas(frame, invert)))
+  }
+  readings.sort((left, right) => scoreReading(right) - scoreReading(left))
+  const best = readings[0]
   return {
-    items: readItemsFromOcr(result.data.lines || []),
-    text: (result.data.text || '').replace(/\s+/g, ' ').trim(),
+    items: best.items,
+    text: best.text,
+    width: frame.width,
+    height: frame.height,
   }
 }
 

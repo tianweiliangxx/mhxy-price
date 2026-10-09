@@ -68,9 +68,10 @@ async function recognizeSource(source) {
       ...item,
       category: route.meta.side === '摆摊' ? '摆摊' : '收购',
     }))
+    const size = found.width ? `画面 ${found.width}×${found.height}，` : ''
     liveText.value = rows.value.length
-      ? `认出 ${rows.value.length} 条`
-      : `这一帧没有认出物品。模型原文：${found.text.slice(0, 80) || '空'}`
+      ? `${size}认出 ${rows.value.length} 条`
+      : `${size}这一帧没有认出物品。模型原文：${found.text.slice(0, 80) || '空'}`
   } catch {
     liveText.value = '识别失败'
   } finally {
@@ -78,12 +79,28 @@ async function recognizeSource(source) {
   }
 }
 
-function recognizeFrame() {
+function waitForFrame(video) {
+  return new Promise((resolve) => {
+    if (video.requestVideoFrameCallback) {
+      video.requestVideoFrameCallback(() => resolve())
+      return
+    }
+    requestAnimationFrame(() => resolve())
+  })
+}
+
+async function recognizeFrame() {
   const video = videoRef.value
   if (!video?.videoWidth) {
-    liveText.value = '还没有画面'
+    liveText.value = '还没有画面。请先点录屏识别，并在预览里看到游戏窗口。'
     return
   }
+  try {
+    await video.play()
+  } catch {
+    // 自动播放被拦住时，仍然用当前这一帧。
+  }
+  await waitForFrame(video)
   const canvas = document.createElement('canvas')
   canvas.width = video.videoWidth
   canvas.height = video.videoHeight
@@ -144,7 +161,10 @@ onBeforeUnmount(stop)
       <el-row :gutter="12">
         <el-col :span="6"><el-statistic title="物品数" :value="itemCount" /></el-col>
         <el-col :span="6"><el-statistic title="记录数" :value="rows.length" /></el-col>
-        <el-col :span="6"><el-statistic title="最高价" :value="topPrice ?? '-'" /></el-col>
+        <el-col :span="6">
+          <el-statistic v-if="topPrice != null" title="最高价" :value="topPrice" />
+          <div v-else class="empty-price"><span>最高价</span><strong>—</strong></div>
+        </el-col>
         <el-col :span="6"><el-statistic title="摊位合计" :value="rows.length ? 1 : 0" /></el-col>
       </el-row>
       <el-empty v-if="rows.length === 0" description="还没有从画面里认出价格" />
@@ -169,4 +189,6 @@ onBeforeUnmount(stop)
 .preview:not([srcObject]) { min-height: 0; }
 .table { margin-top: 12px; }
 .save { margin-top: 12px; }
+.empty-price { display: flex; flex-direction: column; gap: 4px; color: var(--el-text-color-secondary); font-size: 12px; }
+.empty-price strong { color: var(--el-text-color-primary); font-size: 20px; }
 </style>
