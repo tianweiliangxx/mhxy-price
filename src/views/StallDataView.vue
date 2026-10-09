@@ -6,7 +6,7 @@ import { serverName } from '../lib/session.js'
 onMounted(() => { loadPrices().catch(() => {}) })
 
 const rows = computed(() => {
-  const items = catalog.value?.items ?? []
+  const items = (catalog.value?.items ?? []).filter((item) => !item.side || item.side === '摆摊')
   if (!items.length) return []
   const prices = items.map((item) => item.price)
   return [{

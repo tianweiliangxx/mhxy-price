@@ -12,7 +12,7 @@ onMounted(() => {
   loadPrices().catch(() => {})
 })
 
-const categories = computed(() => [...new Set((catalog.value?.items ?? []).map((item) => item.category).filter(Boolean))])
+const categories = computed(() => [...new Set((catalog.value?.items ?? []).filter((item) => !item.side || item.side === route.meta.side).map((item) => item.category).filter(Boolean))])
 
 watch(categories, (list) => {
   if (!category.value && list[0]) category.value = list[0]
@@ -21,7 +21,7 @@ watch(categories, (list) => {
 const seriesList = computed(() => {
   const current = category.value || categories.value[0]
   const items = matchItems(catalog.value?.items ?? [], keyword.value)
-    .filter((item) => item.category === current)
+    .filter((item) => (!item.side || item.side === route.meta.side) && item.category === current)
   const map = new Map()
   for (const item of items) {
     const spec = specOf(item.name)

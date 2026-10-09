@@ -25,10 +25,11 @@ watch(catalog, (data) => {
 const sell = computed(() => route.meta.side === '摆摊')
 const showRmb = computed(() => route.path === '/buy/market')
 
-const categories = computed(() => [...new Set((catalog.value?.items ?? []).map((item) => item.category).filter(Boolean))])
+const categories = computed(() => [...new Set((catalog.value?.items ?? []).filter((item) => !item.side || item.side === route.meta.side).map((item) => item.category).filter(Boolean))])
 
 const rows = computed(() => {
   let items = (catalog.value?.items ?? []).filter((item) => {
+    if (item.side && item.side !== route.meta.side) return false
     const day = item.updatedAt || ''
     return (!dateFrom.value || day >= dateFrom.value) && (!dateTo.value || day <= dateTo.value)
   })
@@ -74,7 +75,7 @@ const rows = computed(() => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column label="分类" width="120">
+          <el-table-column label="分类" min-width="220">
             <template #default="{ row }">{{ row.item.category }}</template>
           </el-table-column>
           <el-table-column v-if="sell" label="最低" width="120">

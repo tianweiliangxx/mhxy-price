@@ -48,7 +48,7 @@ public class PriceController {
     List<PriceRow> rows = new ArrayList<>();
     for (JsonNode node : array) {
       PriceRow item = itemOf(node);
-      if (!item.name().isBlank() && item.price() > 0 && !item.category().isBlank()) {
+      if (!item.name().isBlank() && item.price() > 0) {
         rows.add(item);
       }
     }
@@ -63,10 +63,14 @@ public class PriceController {
         : digits(node.path("price").asText(""));
     String source = node.path("source").asText("").trim();
     String updatedAt = node.path("updatedAt").asText("").trim();
+    String side = node.path("side").asText("").trim();
+    Long categoryId = node.hasNonNull("categoryId") && node.get("categoryId").canConvertToLong()
+        ? node.get("categoryId").asLong()
+        : null;
     if (updatedAt.isEmpty()) {
       updatedAt = LocalDate.now().toString();
     }
-    return new PriceRow(name, category, price, source.isEmpty() ? null : source, updatedAt);
+    return new PriceRow(name, category, price, source.isEmpty() ? null : source, updatedAt, side, categoryId);
   }
 
   private static long digits(String raw) {

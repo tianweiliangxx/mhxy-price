@@ -39,7 +39,7 @@ const icons = {
 
 export function iconFor(item) {
   if (icons[item.name]) return icons[item.name]
-  if (item.category === '低级内丹') return '/icons/neidan.png'
+  if ((item.category || '').includes('召唤兽内丹') || (item.name || '').endsWith('内丹')) return '/icons/neidan.png'
   return ''
 }
 
@@ -94,10 +94,11 @@ export function matchItems(items, query) {
 
 export async function addRecognizedItems(rows, side) {
   const today = new Date().toISOString().slice(0, 10)
-  const category = side === '摆摊' ? '摆摊' : '收购'
   const incoming = rows.map((row) => ({
     name: row.name,
-    category,
+    side: side === '摆摊' ? '摆摊' : '收购',
+    category: row.category || '',
+    categoryId: row.categoryId ?? null,
     price: row.price,
     updatedAt: today,
     source: '画面识别',
@@ -108,7 +109,8 @@ export async function addRecognizedItems(rows, side) {
     body: JSON.stringify(incoming),
   })
   if (!response.ok) {
-    throw new Error('没有写入数据库')
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || '没有写入数据库')
   }
   catalog.value = null
   pending = null

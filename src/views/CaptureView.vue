@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { recognizeWithMimo } from '../lib/mimo.js'
 import { addRecognizedItems } from '../lib/prices.js'
@@ -11,12 +11,69 @@ const recognizing = ref(false)
 const rows = ref([])
 const videoRef = ref(null)
 
+const categoryTree = ref([])
+const treeProps = { value: 'id', label: 'name', children: 'children' }
 const selling = computed(() => route.meta.side === '摆摊')
+const needsCategory = computed(() => rows.value.some((row) => !row.matched && !row.categoryId))
 const itemCount = computed(() => new Set(rows.value.map((row) => row.name)).size)
 const topPrice = computed(() => {
   const prices = rows.value.map((row) => row.price).filter((price) => price)
   return prices.length ? Math.max(...prices) : null
 })
+
+onMounted(() => {
+  loadCategories()
+})
+
+async function loadCategories() {
+  if (categoryTree.value.length) return
+  const response = await fetch('/api/categories')
+  if (!response.ok) return
+  categoryTree.value = await response.json()
+}
+
+function findCategory(nodes, id) {
+  for (const node of nodes || []) {
+    if (node.id === id) return node
+    const child = findCategory(node.children, id)
+    if (child) return child
+  }
+  return null
+}
+
+function pickCategory(row, id) {
+  row.categoryId = id
+  row.category = findCategory(categoryTree.value, id)?.path || ''
+}
+
+async function applyRecognized(items) {
+  let resolved = []
+  try {
+    const response = await fetch('/api/catalog/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: items.map((item) => item.name) }),
+    })
+    if (response.ok) {
+      const data = await response.json()
+      resolved = data.items || []
+    }
+  } catch {
+    resolved = []
+  }
+  await loadCategories()
+  rows.value = items.map((item, index) => {
+    const match = resolved[index] || {}
+    return {
+      ...item,
+      matched: Boolean(match.matched),
+      category: match.matched ? (match.categoryPath || '') : '',
+      categoryId: match.matched ? match.categoryId : null,
+    }
+  })
+  const matched = rows.value.filter((row) => row.matched).length
+  liveText.value = `认出 ${rows.value.length} 条，其中 ${matched} 条已对上分类。再点一次才会再识别。`
+}
 
 function releaseVideo() {
   const video = videoRef.value
@@ -67,11 +124,7 @@ async function recognizeSource(source, mode) {
     const items = await recognizeWithMimo(await toJpeg(source), mode, (text) => {
       reasoning.value += text
     })
-    rows.value = items.map((item) => ({
-      ...item,
-      category: route.meta.side === '摆摊' ? '摆摊' : '收购',
-    }))
-    liveText.value = `认出 ${rows.value.length} 条。再点一次才会再识别。`
+    await applyRecognized(items)
   } catch (error) {
     rows.value = []
     liveText.value = error instanceof Error ? error.message : '识别失败'
@@ -118,11 +171,7 @@ async function captureAndRecognize(mode) {
     const items = await recognizeWithMimo(await toJpeg(canvas), mode, (text) => {
       reasoning.value += text
     })
-    rows.value = items.map((item) => ({
-      ...item,
-      category: route.meta.side === '摆摊' ? '摆摊' : '收购',
-    }))
-    liveText.value = `认出 ${rows.value.length} 条。再点一次才会再识别。`
+    await applyRecognized(items)
   } catch (error) {
     const cancelled = error instanceof DOMException && error.name === 'NotAllowedError'
     if (!cancelled) rows.value = []
@@ -215,12 +264,28 @@ onBeforeUnmount(releaseVideo)
       <template v-else>
         <el-table :data="rows" class="table">
           <el-table-column prop="name" label="物品" />
-          <el-table-column prop="category" label="分类" width="100" />
+          <el-table-column label="分类" min-width="280">
+            <template #default="{ row }">
+              <span v-if="row.matched">{{ row.category }}</span>
+              <div v-else class="category-pick">
+                <el-tree-select
+                  :model-value="row.categoryId"
+                  :data="categoryTree"
+                  :props="treeProps"
+                  check-strictly
+                  filterable
+                  placeholder="选择分类"
+                  @update:model-value="(id) => pickCategory(row, id)"
+                />
+                <el-tag v-if="!row.categoryId" type="warning" size="small">需要分类</el-tag>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="价格" width="140">
             <template #default="{ row }">{{ row.price ?? '未认出' }}</template>
           </el-table-column>
         </el-table>
-        <el-button type="primary" class="save" @click="saveRows">写入物价</el-button>
+        <el-button type="primary" class="save" :disabled="needsCategory" @click="saveRows">写入物价</el-button>
       </template>
     </el-card>
   </section>
@@ -233,6 +298,8 @@ onBeforeUnmount(releaseVideo)
 .preview:not([srcObject]) { min-height: 0; }
 .table { margin-top: 12px; }
 .save { margin-top: 12px; }
+.category-pick { display: flex; align-items: center; gap: 8px; }
+.category-pick :deep(.el-select) { width: 220px; }
 .empty-price { display: flex; flex-direction: column; gap: 4px; color: var(--el-text-color-secondary); font-size: 12px; }
 .empty-price strong { color: var(--el-text-color-primary); font-size: 20px; }
 </style>

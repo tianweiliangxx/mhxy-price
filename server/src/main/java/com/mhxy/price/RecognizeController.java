@@ -6,8 +6,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -67,8 +65,4 @@ public class RecognizeController {
     }
   }
 
-  @ExceptionHandler(RecognizeException.class)
-  public ResponseEntity<Map<String, String>> onRecognize(RecognizeException error) {
-    return ResponseEntity.status(error.status()).body(Map.of("error", error.getMessage()));
-  }
 }
